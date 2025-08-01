@@ -9,6 +9,7 @@ import SidebarStub from './SidebarStub.svelte'
 import Legend from './Legend.svelte'
 import Events from '../core/events.js'
 import Utils from '../stuff/utils.js'
+import DrawingToolbar from './DrawingToolbar.svelte';
 
 export let id // Pane id
 export let props // General props
@@ -26,11 +27,14 @@ $:rightSb = Utils.getScalesBySide(1, layout)
 $:style = `
     width: ${props.width}px;
     height: ${(layout || {}).height}px;
+
     /* didn't work, coz canvas draws through the border
     border-top: ${id ? '1px solid' : 'none'};
     border-color: ${props.colors.scale};
     box-sizing: border-box;*/
 `
+
+console.log(layout.width)
 
 // EVENT INTEFACE
 events.on(`pane-${id}:update-pane`, update)
@@ -56,12 +60,14 @@ function update($layout) {
     events.emitSpec(`sb-${id}-left`, 'update-sb', layout)
     events.emitSpec(`sb-${id}-right`, 'update-sb', layout)
 }
-
+ 
 </script>
 <style>
 </style>
 {#if layout}
+   
 <div class="nvjs-pane" {style}>
+  
     <Grid {id} {props} {layout} {main} bind:this={grid}/>
     <Legend {id} {props} {layout} {main}/>
     {#if leftSb.length}

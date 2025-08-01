@@ -5,7 +5,7 @@ export default class Pin {
     constructor(core, line, name, params = {}) {
 
         this.RADIUS = core.props.config.PIN_RADIUS 
-        this.RADIUS_SQ = Math.pow(this.RADIUS + 7, 2)
+        this.RADIUS_SQ = Math.pow(this.RADIUS + 7 , 2)
 
         if (core.lib.Utils.isMobile) {
             this.RADIUS += 2
@@ -20,6 +20,8 @@ export default class Pin {
         this.data = line.data
         this.name = name
         this.state = params.state || 'settled'
+        this.followx = false
+        this.followy = false
         this.hidden = params.hidden || false
         this.mouse = this.core.mouse
 
@@ -40,18 +42,23 @@ export default class Pin {
         if (this.hidden) return
         switch (this.state) {
             case 'tracking':
+                this.draw_circle(ctx)
                 break
             case 'dragging':
-                if (!this.moved) this.draw_circle(ctx)
+                if (!this.moved) {
+                    this.draw_circle(ctx)
+                 
+                }
                 break
             case 'settled':
                 this.draw_circle(ctx)
                 break
+  
         }
     }
 
     draw_circle(ctx) {
-
+      
         if (this.line.selected) {
             var r = this.RADIUS, lw = 1.5
         } else {
@@ -63,32 +70,36 @@ export default class Pin {
         ctx.fillStyle = this.COLOR_BACK
         ctx.beginPath()
         ctx.arc(
-            this.x = this.core.layout.time2x(this.t),
-            this.y = this.core.layout.value2y(this.y$),
+            this.x =  this.core.layout.time2x(this.t),
+            this.y =  this.core.layout.value2y(this.y$),
             r + 0.5, 0, Math.PI * 2, true)
         ctx.fill()
         ctx.stroke()
     }
 
     update() {
-
+         
         let y$ = this.core.layout.y2value(this.core.cursor.y)
-
-        this.x = this.core.cursor.x
-        this.y = this.core.cursor.y
-        this.t = this.core.cursor.time
-        this.y$ = y$
+        
+        this.x = !this.followy ? this.core.cursor.x : this.x
+        this.y =  !this.followx ?  this.core.cursor.y : this.y
+        this.t =  !this.followy ?  this.core.cursor.time : this.t
+        this.y$ = !this.followx ?  y$ : this.y$
 
         // Save current position in dataExt
         this.data[this.name] = [this.t, this.y$]
-
+      
     }
 
     mousemove(event) {
 
         switch (this.state) {
             case 'tracking':
+                this.moved = true
+                this.update()
+                break
             case 'dragging':
+             
                 this.moved = true
                 this.update()
                 break
@@ -98,6 +109,8 @@ export default class Pin {
     }
 
     mousedown(event, force = false) {
+
+       
         const Utils = this.core.lib.Utils
         if (Utils.defaultPrevented(event) && !force) return
         switch (this.state) {
@@ -116,14 +129,23 @@ export default class Pin {
                 }
                 break
         }
+     
         if (this.hover()) {
             event.preventDefault()
         }
     }
 
     mouseup(event) {
+        this.followy = false
+        this.followx = false
         switch (this.state) {
             case 'dragging':
+                this.state = 'settled'
+                if (this.onSettled) this.onSettled()
+              
+                this.core.events.emit('scroll-lock', false)
+                break
+            case 'tracking':
                 this.state = 'settled'
                 if (this.onSettled) this.onSettled()
                 this.core.events.emit('scroll-lock', false)
@@ -132,6 +154,7 @@ export default class Pin {
     }
 
     on(name, handler) {
+      
         switch (name) {
             case 'settled':
                 this.onSettled = handler
@@ -142,6 +165,7 @@ export default class Pin {
     hover() {
         let x = this.x
         let y = this.y
+        
         return (
             (x - this.mouse.x) * (x - this.mouse.x) +
             (y - this.mouse.y) * (y - this.mouse.y)

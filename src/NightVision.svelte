@@ -78,7 +78,7 @@ $:style = `
     width: ${props.width}px;
     height: ${props.height}px;
 `
-
+ 
 </script>
 <style>
 /* Anit-boostrap tactix */

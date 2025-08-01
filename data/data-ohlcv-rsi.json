@@ -33608,6 +33608,25 @@
             ],
             "settings": {},
             "props": {}
+        },
+        {
+            "name": "RectTool",
+            "type": "RectTool",
+            "data": [],
+            "dataExt": {
+                "rectangles": [
+                    {
+                        "type": "segment",
+                        "p1": [1663347600000, 4.56],
+                        "p2": [1663416000000, 4.7],
+                        "uuid": "123"
+                    }
+                ]
+            }, 
+            "props": {},
+            "settings": {
+                "zIndex": 1
+            }
         }]
     }, {
         "scripts": [{

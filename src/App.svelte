@@ -58,6 +58,7 @@ onMount(() => {
         data: data,
         //autoResize: true,
         //indexBased: true
+ 
     })
     //chart.data = data2
     window.chart = chart
@@ -108,6 +109,9 @@ onMount(() => {
     //  Type in the console: stack.execAll()
     //  or: stack.exec('<group>')    
 
+        
+    chart.events.emitSpec('LineTool', 'tool-line', 'testt')
+ 
 })
 
 </script>

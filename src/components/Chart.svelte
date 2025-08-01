@@ -16,7 +16,7 @@ import Context from '../stuff/context.js'
 import Pane from './Pane.svelte'
 import Botbar from './Botbar.svelte'
 import NoDataStub from './NoDataStub.svelte'
-
+import DrawingToolbar from './DrawingToolbar.svelte';
 export let props = {}
 
 // Getters
@@ -55,6 +55,8 @@ let storage = {} // Storage for helper variables
 let ctx = new Context(props) // For measuring text
 let chartRR = 0
 let layout = null
+
+
 
 scan.calcIndexOffsets()
 
@@ -146,6 +148,7 @@ function update(opt = {}, emit = true) {
     events.emit('update-pane', layout) // Update all panes
     events.emitSpec('botbar', 'update-bb', layout)
     if (emit) events.emit('$chart-update')
+     
 }
 
 // Full update when the dataset changed completely
@@ -183,17 +186,22 @@ function rangeUpdate($range) {
 </script>
 <style>
 </style>
+ 
 {#key chartRR} <!-- Full chart re-render -->
-<div class="nvjs-chart" >
+<div class="nvjs-chart"  >
     {#if layout && layout.main}
-        {#each hub.panes() as pane, i}
-    	<Pane id={i}
-            layout={layout.grids[i]}
-            props={chartProps}
-            main={pane === hub.chart}
-        />
-        {/each}
-        <Botbar props={chartProps} {layout}/>
+      <!--  <div style="width: 40px;height: 100px"><DrawingToolbar props={chartProps} layout={layout} /> </div>
+       <div> -->
+ 
+            {#each hub.panes() as pane, i}
+            <Pane id={i}
+                layout={layout.grids[i]}
+                props={chartProps}
+                main={pane === hub.chart}
+            />
+            {/each}
+            <Botbar props={chartProps} {layout}/>
+        <!--  </div> -->
     {:else}
         <NoDataStub {props}/>
     {/if}

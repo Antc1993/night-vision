@@ -44,6 +44,7 @@ export default class TrendLine {
     }
 
     propagate(name, data) {
+        
         for (var pin of this.pins) {
             pin[name](data)
         }

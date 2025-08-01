@@ -7,12 +7,19 @@ let timeId = null
 let mouseX = 0
 let lines = {} // Line objects stored by uuid
 
+
+
+
 init() {
     // Restore lines from dataExt
     for (var line of $core.dataExt.lines || []) {
         lines[line.uuid] = new $lib.TrendLine($core, line)
         lines[line.uuid].onSelect = lineSelected
     }
+ 
+    $events.on('LineTool:tool-line', event => {
+        console.log("eventooo")
+    })
 }
 
 draw(ctx) {

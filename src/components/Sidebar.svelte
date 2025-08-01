@@ -57,6 +57,8 @@ $:sbStyle = `
     background: ${props.colors.back};
     height: ${layout.height}px;
 `
+
+ 
 $:scale = getCurrentScale(layout)
 
 let canvas // Canvas ref
