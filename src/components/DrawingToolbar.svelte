@@ -1,13 +1,15 @@
 <script>
     import { onMount, onDestroy } from "svelte";
     import Events from "../core/events.js";
+    import DataHub from "../core/dataHub.js";
 
     export let props = {};
     export let layout = {};
 
     let events = Events.instance(props.id);
+    let hub = DataHub.instance(props.id);
     let activeTool = "";
-    let openFlyout = null; // null | 'line'
+    let openFlyout = null; // null | 'line' | 'trash'
     let isCollapsed = false; // For mobile toggle
 
     events.on("scroll-lock", (locked) => {
@@ -17,6 +19,32 @@
         }
     });
 
+    function getCounts() {
+        let drawings = 0;
+        let indicators = 0;
+        if (hub && hub.data && hub.data.panes) {
+            const toolTypes = ["RectTool", "LineTool", "FibonacciRetracementTool", "MeasureTool", "TextTool", "PositionTool"];
+            for (var pane of hub.data.panes) {
+                for (var ov of pane.overlays || []) {
+                    if (ov.dataExt) {
+                        if (ov.dataExt.lines) drawings += ov.dataExt.lines.length;
+                        if (ov.dataExt.rectangles) drawings += ov.dataExt.rectangles.length;
+                        if (ov.dataExt.fibos) drawings += ov.dataExt.fibos.length;
+                        if (ov.dataExt.measures) drawings += ov.dataExt.measures.length;
+                        if (ov.dataExt.texts) drawings += ov.dataExt.texts.length;
+                        if (ov.dataExt.positions) drawings += ov.dataExt.positions.length;
+                    }
+                    if (!ov.main && !toolTypes.includes(ov.type)) {
+                        indicators++;
+                    }
+                }
+            }
+        }
+        return { drawings, indicators };
+    }
+
+    $: counts = (openFlyout === "trash" || true) ? getCounts() : { drawings: 0, indicators: 0 };
+
     function selectTool(type, subtype = "nada", flyoutName = null) {
         activeTool = subtype !== "nada" ? subtype : type;
         openFlyout = null;
@@ -25,6 +53,12 @@
             events.emit("tool-line", subtype);
         } else if (type === "rectangle") {
             events.emit("tool-rectangle", "nada");
+        } else if (type === "text") {
+            events.emit("tool-text", "nada");
+        } else if (type === "long") {
+            events.emit("tool-long", "nada");
+        } else if (type === "short") {
+            events.emit("tool-short", "nada");
         } else if (type === "fibonacci") {
             events.emit("tool-fibos", "horizontal");
         } else if (type === "measure") {
@@ -41,6 +75,28 @@
 
     function clearAllDrawings() {
         events.emit("delete-all-tools");
+        openFlyout = null;
+    }
+
+    function clearAllIndicators() {
+        if (hub && hub.data && hub.data.panes) {
+            const toolTypes = ["RectTool", "LineTool", "FibonacciRetracementTool", "MeasureTool", "TextTool", "PositionTool"];
+            if (hub.data.panes[0]) {
+                hub.data.panes[0].overlays = (hub.data.panes[0].overlays || []).filter(
+                    ov => ov.main || toolTypes.includes(ov.type)
+                );
+            }
+            hub.data.panes = hub.data.panes.slice(0, 1);
+            events.emit("full-update");
+            events.emit("remake-grid");
+            events.emit("update-layout");
+        }
+        openFlyout = null;
+    }
+
+    function clearAllDrawingsAndIndicators() {
+        clearAllDrawings();
+        clearAllIndicators();
     }
 
     function closeFlyouts() {
@@ -66,11 +122,11 @@
         </button>
     </div>
 
-    <!-- 2. Lines (Segment, Horizontal, Ray) with Flyout Arrow -->
+    <!-- 2. Lines (Segment, Horizontal, Vertical, Ray) with Flyout Arrow -->
     <div class="nvjs-tb-item-wrapper">
         <button
             class="nvjs-tb-btn"
-            class:active={activeTool === "segment" || activeTool === "horizontal" || activeTool === "ray"}
+            class:active={activeTool === "segment" || activeTool === "horizontal" || activeTool === "vertical" || activeTool === "ray"}
             on:click={() => selectTool("line", "segment")}
             title="Líneas de tendencia"
         >
@@ -108,6 +164,14 @@
                 >
                     <span class="nvjs-flyout-icon">➖</span>
                     <span>Línea horizontal</span>
+                </button>
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "vertical"}
+                    on:click={() => selectTool("line", "vertical")}
+                >
+                    <span class="nvjs-flyout-icon">⏸️</span>
+                    <span>Línea vertical</span>
                 </button>
                 <button
                     class="nvjs-tb-flyout-item"
@@ -153,7 +217,66 @@
         </button>
     </div>
 
-    <!-- 5. Measure / Ruler Tool -->
+    <!-- 5. Text Tool -->
+    <div class="nvjs-tb-item-wrapper">
+        <button
+            class="nvjs-tb-btn"
+            class:active={activeTool === "text"}
+            on:click={() => selectTool("text", "nada")}
+            title="Texto / Anotación"
+        >
+            <span style="font-size: 16px; font-weight: 700; font-family: sans-serif;">T</span>
+        </button>
+    </div>
+
+    <!-- 6. Position Tool (Long / Short) with Flyout Arrow -->
+    <div class="nvjs-tb-item-wrapper">
+        <button
+            class="nvjs-tb-btn"
+            class:active={activeTool === "long" || activeTool === "short"}
+            on:click={() => selectTool("long", "long")}
+            title="Posición larga / corta"
+        >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="7" rx="1.5" fill="#089981" stroke="#089981"></rect>
+                <rect x="3" y="13" width="18" height="7" rx="1.5" fill="#f23645" stroke="#f23645"></rect>
+                <line x1="3" y1="12" x2="21" y2="12" stroke="#ffffff" stroke-width="1.5"></line>
+            </svg>
+        </button>
+        <button
+            class="nvjs-tb-arrow-btn"
+            class:active={openFlyout === "position"}
+            on:click={(e) => toggleFlyout("position", e)}
+            title="Opciones de posición"
+        >
+            <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="0,0 24,12 0,24"></polygon>
+            </svg>
+        </button>
+
+        {#if openFlyout === "position"}
+            <div class="nvjs-tb-flyout">
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "long"}
+                    on:click={() => selectTool("long", "long")}
+                >
+                    <span class="nvjs-flyout-icon">🟢</span>
+                    <span>Posición larga</span>
+                </button>
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "short"}
+                    on:click={() => selectTool("short", "short")}
+                >
+                    <span class="nvjs-flyout-icon">🔴</span>
+                    <span>Posición corta</span>
+                </button>
+            </div>
+        {/if}
+    </div>
+
+    <!-- 7. Measure / Ruler Tool -->
     <div class="nvjs-tb-item-wrapper">
         <button
             class="nvjs-tb-btn"
@@ -172,12 +295,13 @@
 
     <div class="nvjs-tb-divider"></div>
 
-    <!-- 6. Delete all tools -->
+    <!-- 6. Delete all tools / TradingView Style Flyout -->
     <div class="nvjs-tb-item-wrapper">
         <button
             class="nvjs-tb-btn danger"
-            on:click={clearAllDrawings}
-            title="Eliminar todos los dibujos"
+            class:active={openFlyout === "trash"}
+            on:click={(e) => toggleFlyout("trash", e)}
+            title="Eliminar dibujos e indicadores"
         >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -186,6 +310,42 @@
                 <line x1="14" y1="11" x2="14" y2="17"></line>
             </svg>
         </button>
+        <button
+            class="nvjs-tb-arrow-btn"
+            class:active={openFlyout === "trash"}
+            on:click={(e) => toggleFlyout("trash", e)}
+            title="Opciones de eliminación"
+        >
+            <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="0,0 24,12 0,24"></polygon>
+            </svg>
+        </button>
+
+        {#if openFlyout === "trash"}
+            <div class="nvjs-tb-flyout nvjs-tb-trash-flyout">
+                <button
+                    class="nvjs-tb-flyout-item danger-item"
+                    on:click={clearAllDrawings}
+                >
+                    <span class="nvjs-flyout-icon">🗑️</span>
+                    <span>{counts.drawings > 0 ? `Eliminar ${counts.drawings} dibujos` : 'Eliminar dibujos'}</span>
+                </button>
+                <button
+                    class="nvjs-tb-flyout-item danger-item"
+                    on:click={clearAllIndicators}
+                >
+                    <span class="nvjs-flyout-icon">📊</span>
+                    <span>{counts.indicators > 0 ? `Eliminar ${counts.indicators} indicadores` : 'Eliminar indicadores'}</span>
+                </button>
+                <button
+                    class="nvjs-tb-flyout-item danger-item"
+                    on:click={clearAllDrawingsAndIndicators}
+                >
+                    <span class="nvjs-flyout-icon">🧹</span>
+                    <span>{counts.drawings > 0 && counts.indicators > 0 ? `Eliminar ${counts.drawings} dibujos y ${counts.indicators} indicadores` : 'Eliminar dibujos e indicadores'}</span>
+                </button>
+            </div>
+        {/if}
     </div>
 </aside>
 
@@ -320,6 +480,16 @@
 
     .nvjs-flyout-icon {
         font-size: 14px;
+    }
+
+    .nvjs-tb-trash-flyout {
+        min-width: 220px;
+        top: -60px;
+    }
+
+    .nvjs-tb-flyout-item.danger-item:hover {
+        background: #ef444422;
+        color: #fca5a5;
     }
 
     /* Responsive Mobile styles - auto hide toolbar on mobile */

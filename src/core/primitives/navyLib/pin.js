@@ -78,17 +78,21 @@ export default class Pin {
     }
 
     update() {
-         
-        let y$ = this.core.layout.y2value(this.core.cursor.y)
-        
+        const layout = this.core.layout
+        let cursorTime = this.core.cursor.time !== undefined ? this.core.cursor.time : this.core.cursor.ti
+        const x2timeFn = layout ? (layout.x2time || layout.x2t) : null
+        if (cursorTime === undefined && layout && x2timeFn) {
+            cursorTime = x2timeFn.call(layout, this.core.cursor.x)
+        }
+        let y$ = layout.y2value(this.core.cursor.y)
+
         this.x = !this.followy ? this.core.cursor.x : this.x
-        this.y =  !this.followx ?  this.core.cursor.y : this.y
-        this.t =  !this.followy ?  this.core.cursor.time : this.t
-        this.y$ = !this.followx ?  y$ : this.y$
+        this.y = !this.followx ? this.core.cursor.y : this.y
+        this.t = !this.followy ? (cursorTime !== undefined ? cursorTime : this.t) : this.t
+        this.y$ = !this.followx ? (y$ !== undefined ? y$ : this.y$) : this.y$
 
         // Save current position in dataExt
         this.data[this.name] = [this.t, this.y$]
-      
     }
 
     mousemove(event) {

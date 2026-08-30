@@ -12,6 +12,8 @@
     import RectangleStyle from "./toolSettings/styles/RectangleStyle.svelte";
     import FibonacciStyle from "./toolSettings/styles/FibonacciStyle.svelte";
     import MeasureStyle from "./toolSettings/styles/MeasureStyle.svelte";
+    import TextStyle from "./toolSettings/styles/TextStyle.svelte";
+    import PositionStyle from "./toolSettings/styles/PositionStyle.svelte";
 
     export let props = {};
     export let layout = {};
@@ -46,10 +48,17 @@
         line: LineStyle,
         segment: LineStyle,
         horizontal: LineStyle,
+        vertical: LineStyle,
+        ray: LineStyle,
+        "horizontal-ray": LineStyle,
         rectangle: RectangleStyle,
         fibonacci: FibonacciStyle,
         measure: MeasureStyle,
         range: MeasureStyle,
+        text: TextStyle,
+        long: PositionStyle,
+        short: PositionStyle,
+        position: PositionStyle,
     };
 
     events.on("floating-toolbar:selection-event", onSelection);
@@ -66,6 +75,11 @@
                 return "Rectángulo";
             case "horizontal":
                 return "Línea horizontal";
+            case "vertical":
+                return "Línea vertical";
+            case "ray":
+            case "horizontal-ray":
+                return "Línea Semirrecta";
             case "segment":
             case "line":
                 return "Línea de tendencia";
@@ -74,6 +88,14 @@
             case "measure":
             case "range":
                 return "Medida (Rango de precio / fecha)";
+            case "text":
+                return "Texto / Anotación";
+            case "long":
+                return "Posición Larga";
+            case "short":
+                return "Posición Corta";
+            case "position":
+                return "Posición Larga / Corta";
             default:
                 return "Configuración";
         }
@@ -310,7 +332,7 @@
                         bind:p1Bar={coordP1Bar}
                         bind:p2Price={coordP2Price}
                         bind:p2Bar={coordP2Bar}
-                        hasP2={selectedTool.type !== "horizontal"}
+                        hasP2={selectedTool.type !== "horizontal" && selectedTool.type !== "vertical" && selectedTool.type !== "ray" && selectedTool.type !== "horizontal-ray" && selectedTool.type !== "text"}
                         onUpdate={emitUpdate}
                     />
                 {:else if activeTab === "text"}

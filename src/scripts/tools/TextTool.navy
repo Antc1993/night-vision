@@ -1,0 +1,216 @@
+// Navy ~ 0.2-lite
+// <ds>Text Tool (Annotation on chart) [Tap + Hold]</ds>
+
+[OVERLAY name = TextTool, ctx = Canvas, verion = 1.0.0]
+
+let timeId = null
+let mouseX = 0
+let texts = {} // Text objects stored by uuid
+let startDrawTool = false
+
+init() {
+    // Restore texts from dataExt
+    for (var t of $core.dataExt.texts || []) {
+        texts[t.uuid] = new $lib.TextAnnotation($core, t)
+        texts[t.uuid].onSelect = textSelected
+    }
+
+    const handleToolText = event => {
+        startDrawTool = true
+    }
+    $events.on($core.uuid + ':tool-text', handleToolText)
+    if ($core.dataExt && $core.dataExt.uuid) {
+        $events.on($core.dataExt.uuid + ':tool-text', handleToolText)
+    }
+
+    $events.on($core.uuid + ':tool-started', activeUuid => {
+        if (activeUuid !== $core.uuid) {
+            startDrawTool = false
+        }
+    })
+
+    $events.on($core.uuid + ':delete-tool', uuid => {
+        if (texts[uuid]) removeText(uuid)
+    })
+
+    $events.on('delete-all-tools', () => {
+        for (var uuid in texts) {
+            delete texts[uuid]
+        }
+        $core.dataExt.texts = []
+        $events.emit('update-layout')
+        $events.emit('selection-event', null)
+    })
+
+    $events.on($core.uuid + ':selection-event', data => {
+        if (data && data.overlayUuid !== $core.uuid) {
+            let changed = false
+            for (var uuid in texts) {
+                if (texts[uuid].selected) {
+                    texts[uuid].selected = false
+                    changed = true
+                }
+            }
+            if (changed) $events.emit('update-layout')
+        }
+    })
+
+    $events.on($core.uuid + ':update-settings', data => {
+        const { uuid, settings, p1, text } = data
+        if (texts[uuid]) {
+            if (settings) {
+                texts[uuid].data.settings = Object.assign(texts[uuid].data.settings || {}, settings)
+            }
+            if (text !== undefined) {
+                texts[uuid].data.text = text
+                if (texts[uuid].data.settings) texts[uuid].data.settings.text = text
+            }
+            if (p1) {
+                texts[uuid].data.p1 = p1
+                if (texts[uuid].pins[0]) {
+                    texts[uuid].pins[0].t = p1[0]
+                    texts[uuid].pins[0].y$ = p1[1]
+                }
+            }
+            const d = $core.dataExt.texts.find(x => x.uuid === uuid)
+            if (d) {
+                if (settings) d.settings = Object.assign(d.settings || {}, settings)
+                if (text !== undefined) {
+                    d.text = text
+                    if (d.settings) d.settings.text = text
+                }
+                if (p1) d.p1 = p1
+            }
+            $events.emit('update-layout')
+        }
+    })
+}
+
+draw(ctx) {
+    for (var t of Object.values(texts)) {
+        t.draw(ctx)
+    }
+}
+
+newText() {
+    if (!$core.dataExt.texts) {
+        $core.dataExt.texts = []
+    }
+
+    let t = $core.cursor.time
+    let $ = $core.layout.y2value($core.cursor.y)
+    let uuid = $lib.Utils.uuid3()
+
+    let textData = {
+        type: 'text',
+        p1: [t, $],
+        text: 'Texto',
+        settings: {
+            color: '#ffffff',
+            backColor: 'rgba(18, 22, 34, 0.9)',
+            fontSize: 14,
+            bold: false,
+            italic: false,
+            showBackground: false,
+            border: false
+        },
+        uuid: uuid
+    }
+
+    $core.dataExt.texts.push(textData)
+    texts[uuid] = new $lib.TextAnnotation($core, textData, true)
+    texts[uuid].onSelect = textSelected
+    texts[uuid].selected = true
+
+    $events.emit('tool-started', $core.uuid)
+    $events.emit('scroll-lock', false)
+    $events.emit('update-layout')
+    startDrawTool = false
+}
+
+textSelected($uuid) {
+    let selectedText = null
+    for (var uuid in texts) {
+        texts[uuid].selected = uuid === $uuid
+        if (texts[uuid].selected) selectedText = texts[uuid]
+    }
+    $events.emit('update-layout')
+
+    if (selectedText) {
+        $events.emit('selection-event', {
+            uuid: $uuid,
+            overlayUuid: $core.uuid,
+            type: 'text',
+            settings: selectedText.data.settings || {},
+            data: selectedText.data,
+            x: $core.mouse ? $core.mouse.x : 0,
+            y: $core.mouse ? $core.mouse.y : 0,
+            gridOffset: $core.layout.sbMax[0],
+            paneOffset: $core.layout.offset
+        })
+    } else {
+        $events.emit('selection-event', null)
+    }
+}
+
+removeText(uuid) {
+    delete texts[uuid]
+    $core.dataExt.texts = $core.dataExt.texts.filter(x => x.uuid !== uuid)
+    $events.emit('update-layout')
+    $events.emit('selection-event', null)
+}
+
+propagate(name, data) {
+    const list = (name === 'mousedown' || name === 'click') ? Object.values(texts).slice().reverse() : Object.values(texts)
+    for (var t of list) {
+        t[name](data)
+    }
+}
+
+mousedown(event) {
+    if (startDrawTool) {
+        newText()
+        return
+    }
+
+    if (event && (event.__toolCaptured || $lib.Utils.defaultPrevented(event))) {
+        return
+    }
+
+    mouseX = $core.mouse.x
+
+    let hit = false
+    for (var t of Object.values(texts).slice().reverse()) {
+        if (t.collision() || t.pins.some(p => p.hover())) {
+            hit = true
+            break
+        }
+    }
+
+    if (!hit) {
+        const hadSelected = Object.values(texts).some(x => x.selected)
+        if (hadSelected) {
+            textSelected(null)
+        }
+    }
+
+    $events.emit('update-layout')
+    propagate('mousedown', event)
+}
+
+mouseup(event) {
+    propagate('mouseup', event)
+}
+
+mousemove(event) {
+    propagate('mousemove', event)
+}
+
+keydown(event) {
+    if (event.code === 'Backspace' || event.code === 'Delete') {
+        let s = Object.values(texts).find(x => x.selected)
+        if (s) removeText(s.data.uuid)
+    }
+}
+
+legend() => null

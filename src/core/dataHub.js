@@ -12,7 +12,9 @@ const DEFAULT_TOOLS = [
     { name: 'RectTool', type: 'RectTool' },
     { name: 'LineTool', type: 'LineTool' },
     { name: 'FibonacciRetracementTool', type: 'FibonacciRetracementTool' },
-    { name: 'MeasureTool', type: 'MeasureTool' }
+    { name: 'MeasureTool', type: 'MeasureTool' },
+    { name: 'TextTool', type: 'TextTool' },
+    { name: 'PositionTool', type: 'PositionTool' }
 ]
 
 class DataHub {

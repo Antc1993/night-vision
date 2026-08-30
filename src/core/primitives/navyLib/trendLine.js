@@ -17,6 +17,9 @@ export default class TrendLine {
             case 'horizontal':
                 this.line = new core.lib.HorizontalLine(core)
                 break
+            case 'vertical':
+                this.line = new core.lib.VerticalLine(core)
+                break
             case 'ray':
             case 'horizontal-ray':
                 this.line = new core.lib.HorizontalRay(core)
@@ -31,14 +34,14 @@ export default class TrendLine {
         this.pins = [
             new core.lib.Pin(core, this, 'p1')
         ]
-        if (line.type !== 'horizontal' && line.type !== 'ray' && line.type !== 'horizontal-ray') {
+        if (line.type !== 'horizontal' && line.type !== 'ray' && line.type !== 'horizontal-ray' && line.type !== 'vertical') {
             this.pins.push(new core.lib.Pin(core, this, 'p2'))
             if (nw) {
                 this.pins[1].state = 'tracking'
                 this.isDrawing = true
             }
         } else if (nw) {
-            // Horizontal line & Horizontal ray are 1-click placed
+            // Horizontal line, Vertical line & Horizontal ray are 1-click placed
             this.isDrawing = false
             this.pins[0].state = 'settled'
             this.core.events.emit('scroll-lock', false)
@@ -56,11 +59,67 @@ export default class TrendLine {
         this.line.draw(ctx)
         ctx.stroke()
 
+        const text = this.data.text || sett.text
+        if (text) {
+            this.drawText(ctx, text, sett)
+        }
+
         if (this.hover || this.selected) {
             for (var pin of this.pins) {
                 pin.draw(ctx)
             }
         }
+    }
+
+    drawText(ctx, text, sett) {
+        const layout = this.core.layout
+        const p1 = this.data.p1
+        const p2 = this.data.p2 || p1
+        if (!p1) return
+
+        let midX, midY
+        if (this.data.type === 'horizontal') {
+            midX = layout.width / 2
+            midY = layout.value2y(p1[1])
+        } else if (this.data.type === 'vertical') {
+            midX = layout.time2x(p1[0])
+            midY = layout.height / 2
+        } else if (this.data.type === 'ray' || this.data.type === 'horizontal-ray') {
+            const x1 = layout.time2x(p1[0])
+            midX = (x1 + layout.width) / 2
+            midY = layout.value2y(p1[1])
+        } else {
+            const x1 = layout.time2x(p1[0])
+            const y1 = layout.value2y(p1[1])
+            const x2 = layout.time2x(p2[0])
+            const y2 = layout.value2y(p2[1])
+            midX = (x1 + x2) / 2
+            midY = (y1 + y2) / 2
+        }
+
+        ctx.save()
+        ctx.font = '12px Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif'
+        const metrics = ctx.measureText(text)
+        const textWidth = metrics.width
+        const paddingX = 8
+        const paddingY = 4
+        const boxWidth = textWidth + paddingX * 2
+        const boxHeight = 20
+
+        ctx.fillStyle = 'rgba(18, 22, 34, 0.9)'
+        ctx.beginPath()
+        if (ctx.roundRect) {
+            ctx.roundRect(midX - boxWidth / 2, midY - boxHeight / 2, boxWidth, boxHeight, 4)
+        } else {
+            ctx.rect(midX - boxWidth / 2, midY - boxHeight / 2, boxWidth, boxHeight)
+        }
+        ctx.fill()
+
+        ctx.fillStyle = '#ffffff'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(text, midX, midY)
+        ctx.restore()
     }
 
     collision() {
@@ -124,6 +183,21 @@ export default class TrendLine {
                     if (event.preventDefault) event.preventDefault()
                 }
             }
+        } else if (this.data.type === 'vertical') {
+            if (this.collision() || pinHovered) {
+                this.isDragging = true
+                const curT = this.core.cursor.time !== undefined ? this.core.cursor.time : this.core.cursor.ti
+                this.dragStart = {
+                    t: curT,
+                    p1_t: this.data.p1[0]
+                }
+                this.core.events.emit('scroll-lock', true)
+                this.core.events.emit('set-cursor', 'ew-resize')
+                if (event) {
+                    event.__toolCaptured = true
+                    if (event.preventDefault) event.preventDefault()
+                }
+            }
         } else if (this.data.type === 'ray' || this.data.type === 'horizontal-ray') {
             if (this.collision() || pinHovered) {
                 this.isDragging = true
@@ -179,6 +253,10 @@ export default class TrendLine {
             if (this.collision() || this.pins.some(p => p.hover())) {
                 this.core.events.emit('set-cursor', 'ns-resize')
             }
+        } else if (this.data.type === 'vertical') {
+            if (this.collision() || this.pins.some(p => p.hover())) {
+                this.core.events.emit('set-cursor', 'ew-resize')
+            }
         } else if (this.data.type === 'ray' || this.data.type === 'horizontal-ray') {
             if (this.pins.some(p => p.hover())) {
                 this.core.events.emit('set-cursor', 'move')
@@ -215,6 +293,14 @@ export default class TrendLine {
                     if (this.data.p2) this.data.p2[1] = this.data.p1[1]
                 }
                 this.core.events.emit('set-cursor', 'ns-resize')
+            } else if (this.data.type === 'vertical') {
+                const currentT = this.core.cursor.time !== undefined ? this.core.cursor.time : this.core.cursor.ti
+                if (currentT !== undefined && this.dragStart.p1_t !== undefined) {
+                    const dt = currentT - this.dragStart.t
+                    this.data.p1[0] = this.dragStart.p1_t + dt
+                    this.pins[0].t = this.data.p1[0]
+                }
+                this.core.events.emit('set-cursor', 'ew-resize')
             } else if (this.data.type === 'ray' || this.data.type === 'horizontal-ray') {
                 const currentT = this.core.cursor.time
                 const currentY$ = this.core.layout.y2value(this.core.cursor.y)
@@ -251,6 +337,10 @@ export default class TrendLine {
                 if (this.collision() || this.pins.some(p => p.hover())) {
                     this.core.events.emit('set-cursor', 'ns-resize')
                 }
+            } else if (this.data.type === 'vertical') {
+                if (this.collision() || this.pins.some(p => p.hover())) {
+                    this.core.events.emit('set-cursor', 'ew-resize')
+                }
             } else if (this.data.type === 'ray' || this.data.type === 'horizontal-ray') {
                 if (this.pins.some(p => p.hover())) {
                     this.core.events.emit('set-cursor', 'move')
@@ -276,6 +366,7 @@ export default class TrendLine {
 
     getPinCursor(pin) {
         if (this.data.type === 'horizontal') return 'ns-resize'
+        if (this.data.type === 'vertical') return 'ew-resize'
         if (this.data.type === 'ray' || this.data.type === 'horizontal-ray') return 'move'
 
         const layout = this.core.layout

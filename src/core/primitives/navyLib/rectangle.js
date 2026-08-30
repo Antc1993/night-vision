@@ -67,11 +67,46 @@ export default class Rectangle {
 
         ctx.stroke()
 
+        const text = this.data.text || sett.text
+        if (text) {
+            this.drawText(ctx, text, sett)
+        }
+
         if (this.hover || this.selected || this.isDrawing) {
             for (var pin of this.pins) {
                 pin.draw(ctx)
             }
         }
+    }
+
+    drawText(ctx, text, sett) {
+        if (!this.rect) return
+        const midX = this.rect.x + this.rect.width / 2
+        const midY = this.rect.y + this.rect.height / 2
+
+        ctx.save()
+        ctx.font = '12px Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif'
+        const metrics = ctx.measureText(text)
+        const textWidth = metrics.width
+        const paddingX = 8
+        const paddingY = 4
+        const boxWidth = textWidth + paddingX * 2
+        const boxHeight = 20
+
+        ctx.fillStyle = 'rgba(18, 22, 34, 0.9)'
+        ctx.beginPath()
+        if (ctx.roundRect) {
+            ctx.roundRect(midX - boxWidth / 2, midY - boxHeight / 2, boxWidth, boxHeight, 4)
+        } else {
+            ctx.rect(midX - boxWidth / 2, midY - boxHeight / 2, boxWidth, boxHeight)
+        }
+        ctx.fill()
+
+        ctx.fillStyle = '#ffffff'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(text, midX, midY)
+        ctx.restore()
     }
 
     colorWithOpacity(color, opacity = 0.2) {
@@ -220,6 +255,7 @@ export default class Rectangle {
             const trackingPin = this.pins.find(p => p.state === 'tracking')
             if (trackingPin) {
                 trackingPin.mousemove(event)
+                this.update()
                 this.updateRect()
                 this.core.events.emit('update-layout')
             }

@@ -30,6 +30,9 @@ import Measure from '../primitives/navyLib/measure.js'
 import Segment from '../primitives/navyLib/seg.js'
 import HorizontalLine from '../primitives/navyLib/horizontalLine.js'
 import HorizontalRay from '../primitives/navyLib/horizontalRay.js'
+import VerticalLine from '../primitives/navyLib/verticalLine.js'
+import TextAnnotation from '../primitives/navyLib/textAnnotation.js'
+import PositionTool from '../primitives/navyLib/positionTool.js'
 
 import Pin from '../primitives/navyLib/pin.js'
 import {
@@ -68,7 +71,7 @@ export default class OverlayEnv {
             candleBody, candleWick, volumeBar,
             fastSma, avgVolume, candleColor,
             roundRect, rescaleFont, drawArrow,
-            TrendLine, Segment, HorizontalLine, HorizontalRay, Pin, Rectangle, FiboRetracement, Measure,
+            TrendLine, Segment, HorizontalLine, HorizontalRay, VerticalLine, TextAnnotation, PositionTool, Pin, Rectangle, FiboRetracement, Measure,
             Utils
         }
 

@@ -1,0 +1,250 @@
+// Navy ~ 0.2-lite
+// <ds>Long and Short Position Tool [Tap + Hold]</ds>
+
+[OVERLAY name = PositionTool, ctx = Canvas, verion = 1.0.0]
+
+let timeId = null
+let mouseX = 0
+let positions = {} // Position objects stored by uuid
+let startDrawType = null // null | 'long' | 'short'
+
+init() {
+    // Restore positions from dataExt
+    for (var p of $core.dataExt.positions || []) {
+        positions[p.uuid] = new $lib.PositionTool($core, p)
+        positions[p.uuid].onSelect = positionSelected
+    }
+
+    const handleToolLong = event => {
+        startDrawType = 'long'
+    }
+    const handleToolShort = event => {
+        startDrawType = 'short'
+    }
+
+    $events.on($core.uuid + ':tool-long', handleToolLong)
+    $events.on($core.uuid + ':tool-short', handleToolShort)
+    if ($core.dataExt && $core.dataExt.uuid) {
+        $events.on($core.dataExt.uuid + ':tool-long', handleToolLong)
+        $events.on($core.dataExt.uuid + ':tool-short', handleToolShort)
+    }
+
+    $events.on($core.uuid + ':tool-started', activeUuid => {
+        if (activeUuid !== $core.uuid) {
+            startDrawType = null
+        }
+    })
+
+    $events.on($core.uuid + ':delete-tool', uuid => {
+        if (positions[uuid]) removePosition(uuid)
+    })
+
+    $events.on('delete-all-tools', () => {
+        for (var uuid in positions) {
+            delete positions[uuid]
+        }
+        $core.dataExt.positions = []
+        $events.emit('update-layout')
+        $events.emit('selection-event', null)
+    })
+
+    $events.on($core.uuid + ':selection-event', data => {
+        if (data && data.overlayUuid !== $core.uuid) {
+            let changed = false
+            for (var uuid in positions) {
+                if (positions[uuid].selected) {
+                    positions[uuid].selected = false
+                    changed = true
+                }
+            }
+            if (changed) $events.emit('update-layout')
+        }
+    })
+
+    $events.on($core.uuid + ':update-settings', data => {
+        const { uuid, settings, target, stop, p1, t2 } = data
+        if (positions[uuid]) {
+            if (settings) {
+                positions[uuid].data.settings = Object.assign(positions[uuid].data.settings || {}, settings)
+            }
+            if (target !== undefined) positions[uuid].data.target = target
+            if (stop !== undefined) positions[uuid].data.stop = stop
+            if (p1) positions[uuid].data.p1 = p1
+            if (t2 !== undefined) positions[uuid].data.t2 = t2
+
+            const d = $core.dataExt.positions.find(x => x.uuid === uuid)
+            if (d) {
+                if (settings) d.settings = Object.assign(d.settings || {}, settings)
+                if (target !== undefined) d.target = target
+                if (stop !== undefined) d.stop = stop
+                if (p1) d.p1 = p1
+                if (t2 !== undefined) d.t2 = t2
+            }
+            positions[uuid].updatePins()
+            $events.emit('update-layout')
+        }
+    })
+}
+
+draw(ctx) {
+    for (var pos of Object.values(positions)) {
+        pos.draw(ctx)
+    }
+}
+
+newPosition(type) {
+    if (!$core.dataExt.positions) {
+        $core.dataExt.positions = []
+    }
+
+    let t = $core.cursor.time !== undefined ? $core.cursor.time : $core.cursor.ti
+    let $ = $core.layout.y2value($core.cursor.y)
+    let uuid = $lib.Utils.uuid3()
+
+    const layout = $core.layout
+    const cursorY = $core.cursor.y !== undefined ? $core.cursor.y : (layout ? layout.height / 2 : 100)
+    const entryPrice = layout && layout.y2value ? layout.y2value(cursorY) : $
+
+    // Alturas proporcionales al alto visible de la pantalla (en píxeles)
+    let targetPrice, stopPrice
+    if (layout && layout.y2value && layout.height) {
+        const deltaTargetPx = Math.max(50, Math.min(160, layout.height * 0.18))
+        const deltaStopPx = Math.max(35, Math.min(120, layout.height * 0.12))
+
+        if (type === 'short') {
+            targetPrice = layout.y2value(cursorY + deltaTargetPx)
+            stopPrice = layout.y2value(cursorY - deltaStopPx)
+        } else {
+            targetPrice = layout.y2value(cursorY - deltaTargetPx)
+            stopPrice = layout.y2value(cursorY + deltaStopPx)
+        }
+    } else {
+        targetPrice = type === 'short' ? entryPrice * 0.96 : entryPrice * 1.04
+        stopPrice = type === 'short' ? entryPrice * 1.02 : entryPrice * 0.98
+    }
+
+    // Ancho proporcional (16 velas o 130px) usando x2time
+    let t2
+    const x2timeFn = layout ? (layout.x2time || layout.x2t) : null
+    if (layout && layout.time2x && x2timeFn) {
+        const x1 = layout.time2x(t)
+        const widthPx = layout.candleWidth ? Math.round(layout.candleWidth * 16) : 130
+        t2 = x2timeFn.call(layout, x1 + Math.max(90, Math.min(180, widthPx)))
+    }
+    if (t2 === undefined || t2 <= t) {
+        t2 = t + 3600000 * 2
+    }
+
+    let posData = {
+        type: type, // 'long' | 'short'
+        p1: [t, entryPrice],
+        target: targetPrice,
+        stop: stopPrice,
+        t2: t2,
+        settings: {
+            profitColor: '#089981',
+            lossColor: '#f23645',
+            profitBg: 'rgba(8, 153, 129, 0.2)',
+            lossBg: 'rgba(242, 54, 69, 0.2)',
+            lineColor: '#787b86'
+        },
+        uuid: uuid
+    }
+
+    $core.dataExt.positions.push(posData)
+    positions[uuid] = new $lib.PositionTool($core, posData, true)
+    positions[uuid].onSelect = positionSelected
+    positions[uuid].selected = true
+
+    $events.emit('tool-started', $core.uuid)
+    $events.emit('scroll-lock', false)
+    $events.emit('update-layout')
+    startDrawType = null
+}
+
+positionSelected($uuid) {
+    let selectedPos = null
+    for (var uuid in positions) {
+        positions[uuid].selected = uuid === $uuid
+        if (positions[uuid].selected) selectedPos = positions[uuid]
+    }
+    $events.emit('update-layout')
+
+    if (selectedPos) {
+        $events.emit('selection-event', {
+            uuid: $uuid,
+            overlayUuid: $core.uuid,
+            type: selectedPos.data.type, // 'long' | 'short'
+            settings: selectedPos.data.settings || {},
+            data: selectedPos.data,
+            x: $core.mouse ? $core.mouse.x : 0,
+            y: $core.mouse ? $core.mouse.y : 0,
+            gridOffset: $core.layout.sbMax[0],
+            paneOffset: $core.layout.offset
+        })
+    } else {
+        $events.emit('selection-event', null)
+    }
+}
+
+removePosition(uuid) {
+    delete positions[uuid]
+    $core.dataExt.positions = $core.dataExt.positions.filter(x => x.uuid !== uuid)
+    $events.emit('update-layout')
+    $events.emit('selection-event', null)
+}
+
+propagate(name, data) {
+    const list = (name === 'mousedown' || name === 'click') ? Object.values(positions).slice().reverse() : Object.values(positions)
+    for (var pos of list) {
+        pos[name](data)
+    }
+}
+
+mousedown(event) {
+    if (startDrawType) {
+        newPosition(startDrawType)
+        return
+    }
+
+    if (event && (event.__toolCaptured || $lib.Utils.defaultPrevented(event))) {
+        return
+    }
+
+    mouseX = $core.mouse.x
+
+    let hit = false
+    for (var pos of Object.values(positions).slice().reverse()) {
+        if (pos.collision()) {
+            hit = true
+            break
+        }
+    }
+
+    if (!hit) {
+        const hadSelected = Object.values(positions).some(x => x.selected)
+        if (hadSelected) {
+            positionSelected(null)
+        }
+    }
+
+    $events.emit('update-layout')
+    propagate('mousedown', event)
+}
+
+mouseup(event) {
+    propagate('mouseup', event)
+}
+
+mousemove(event) {
+    propagate('mousemove', event)
+}
+
+keydown(event) {
+    if (event.code === 'Backspace' || event.code === 'Delete') {
+        let s = Object.values(positions).find(x => x.selected)
+        if (s) removePosition(s.data.uuid)
+    }
+}
+
+legend() => null
