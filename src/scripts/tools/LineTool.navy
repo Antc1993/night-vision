@@ -109,7 +109,11 @@ newLine() {
     lines[uuid].selected = true
 
     $events.emit('tool-started', $core.uuid)
-    $events.emit('scroll-lock', true)
+    if (type !== 'horizontal' && type !== 'ray' && type !== 'horizontal-ray') {
+        $events.emit('scroll-lock', true)
+    } else {
+        $events.emit('scroll-lock', false)
+    }
     $events.emit('update-layout')
     startDrawTool = false
 }
