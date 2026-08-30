@@ -3,19 +3,15 @@
 
 class Events {
 
-    // TODO: add component call priority (think)
-    // TODO: build event inspector (think)
     constructor() {
         this.handlers = {}
+        this._autoId = 0
     }
 
     // Immediately calls all handlers with the
-    // specified type (there can be only one
-    // listener of this type per each component)
+    // specified type
     emit(type, obj) {
 
-        // General update
-        // components: { name1: h1, name2, h2, ... }
         let components = this.handlers[type]
         if (!components) return
 
@@ -32,17 +28,13 @@ class Events {
         components[comp](obj)
     }
 
-    // TODO: imlement more specific emitter, e.g.
-    // emitRegex() which uses RegEx to match
-    // components
-
     // Add event listener to a specific component:
     // '<component>:<event-type>' or simply '<event-type>'
     on(compAndType, f) {
         let parts = compAndType.split(':')
         let comp, type
         if (parts.length === 1) {
-            comp = 'root'
+            comp = 'root_' + (++this._autoId)
             type = parts[0]
         } else {
             [comp, type] = parts

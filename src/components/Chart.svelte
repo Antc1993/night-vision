@@ -191,20 +191,22 @@
     <!-- Full chart re-render -->
     <div class="nvjs-chart">
         {#if layout && layout.main}
-            <!--  <div style="width: 40px;height: 100px"><DrawingToolbar props={chartProps} layout={layout} /> </div>
-       <div> -->
+            {#if props.toolbar}
+                <DrawingToolbar props={chartProps} {layout} />
+            {/if}
 
-            {#each hub.panes() as pane, i}
-                <Pane
-                    id={i}
-                    layout={layout.grids[i]}
-                    props={chartProps}
-                    main={pane === hub.chart}
-                />
-            {/each}
-            <Botbar props={chartProps} {layout} />
-            <FloatingToolbar props={chartProps} {layout} />
-            <!--  </div> -->
+            <div class="nvjs-panes-wrapper">
+                {#each hub.panes() as pane, i}
+                    <Pane
+                        id={i}
+                        layout={layout.grids[i]}
+                        props={chartProps}
+                        main={pane === hub.chart}
+                    />
+                {/each}
+                <Botbar props={chartProps} {layout} />
+                <FloatingToolbar props={chartProps} {layout} />
+            </div>
         {:else}
             <NoDataStub {props} />
         {/if}
@@ -215,6 +217,13 @@
     .nvjs-chart {
         position: relative;
         width: 100%;
+        height: 100%;
+        display: flex;
+    }
+    .nvjs-panes-wrapper {
+        position: relative;
+        flex: 1;
+        min-width: 0;
         height: 100%;
     }
 </style>

@@ -16,16 +16,25 @@ init() {
         rectangles[rect.uuid].onSelect = rectangleselected
     }
 
-    $events.on($core.dataExt.uuid + ':tool-rectangle', event => {
-        console.log("Iniciando event de dibujado de rect" + $core.dataExt.uuid)
+    const handleToolRect = event => {
         startDrawTool = true
+    }
+    $events.on($core.uuid + ':tool-rectangle', handleToolRect)
+    if ($core.dataExt && $core.dataExt.uuid) {
+        $events.on($core.dataExt.uuid + ':tool-rectangle', handleToolRect)
+    }
+
+    $events.on($core.uuid + ':tool-started', activeUuid => {
+        if (activeUuid !== $core.uuid) {
+            startDrawTool = false
+        }
     })
 
     $events.on($core.uuid + ':delete-tool', uuid => {
         if (rectangles[uuid]) removeLine(uuid)
     })
 
-    $events.on('selection-event', data => {
+    $events.on($core.uuid + ':selection-event', data => {
         if (data && data.overlayUuid !== $core.uuid) {
             let changed = false
             for (var uuid in rectangles) {
@@ -103,6 +112,7 @@ newRectangle() {
     rectangles[uuid].onSelect = rectangleselected
     rectangles[uuid].selected = true
 
+    $events.emit('tool-started', $core.uuid)
     $events.emit('scroll-lock', true)
     $events.emit('update-layout')
     startDrawTool = false

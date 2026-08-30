@@ -15,16 +15,25 @@ init() {
         fibos[fibo.uuid].onSelect = fiboSelected
     }
 
-    $events.on($core.dataExt.uuid + ':tool-fibos', event => {
-        console.log("evento tool-fibos", event)
+    const handleToolFibos = event => {
         startDrawTool = true
+    }
+    $events.on($core.uuid + ':tool-fibos', handleToolFibos)
+    if ($core.dataExt && $core.dataExt.uuid) {
+        $events.on($core.dataExt.uuid + ':tool-fibos', handleToolFibos)
+    }
+
+    $events.on($core.uuid + ':tool-started', activeUuid => {
+        if (activeUuid !== $core.uuid) {
+            startDrawTool = false
+        }
     })
 
     $events.on($core.uuid + ':delete-tool', uuid => {
         if (fibos[uuid]) removeFibo(uuid)
     })
 
-    $events.on('selection-event', data => {
+    $events.on($core.uuid + ':selection-event', data => {
         if (data && data.overlayUuid !== $core.uuid) {
             let changed = false
             for (var uuid in fibos) {
@@ -96,6 +105,7 @@ newFibo() {
     fibos[uuid].onSelect = fiboSelected
     fibos[uuid].selected = true
 
+    $events.emit('tool-started', $core.uuid)
     $events.emit('scroll-lock', true)
     $events.emit('update-layout')
     startDrawTool = false

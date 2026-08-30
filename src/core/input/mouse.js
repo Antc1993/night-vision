@@ -39,9 +39,15 @@ export default class Mouse {
                 f(event)
             }
         }
-        if (name === 'mousemove') {
-            this.x = event.layerX
-            this.y = event.layerY
+        if (name === 'mousemove' || name === 'mousedown') {
+            if (event.target && event.target.getBoundingClientRect) {
+                const rect = event.target.getBoundingClientRect()
+                this.x = event.clientX - rect.left
+                this.y = event.clientY - rect.top
+            } else {
+                this.x = event.offsetX ?? event.layerX
+                this.y = event.offsetY ?? event.layerY
+            }
             this.t = l.x2time(this.x)
             this.y$ = l.y2value(this.y)
         }

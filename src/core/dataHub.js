@@ -8,6 +8,13 @@ import Events from './events.js'
 import SeClient from './se/seClient.js'
 import DataView$ from './dataView.js'
 
+const DEFAULT_TOOLS = [
+    { name: 'RectTool', type: 'RectTool' },
+    { name: 'LineTool', type: 'LineTool' },
+    { name: 'FibonacciRetracementTool', type: 'FibonacciRetracementTool' },
+    { name: 'MeasureTool', type: 'MeasureTool' }
+]
+
 class DataHub {
 
     constructor(nvId) {
@@ -61,6 +68,22 @@ class DataHub {
             pane.id =  paneId++
             pane.overlays = pane.overlays || []
             pane.settings = pane.settings || {}
+
+            // Auto-inject default drawing tools if not already present in the pane
+            for (const tool of DEFAULT_TOOLS) {
+                if (!pane.overlays.some(ov => ov.type === tool.type)) {
+                    pane.overlays.push({
+                        name: tool.name,
+                        type: tool.type,
+                        data: [],
+                        dataExt: {},
+                        settings: { zIndex: 10 },
+                        props: {},
+                        uuid: Utils.uuid3()
+                    })
+                }
+            }
+
             var ovId = 0
             for (var ov of pane.overlays) {
                 ov.id = ovId++

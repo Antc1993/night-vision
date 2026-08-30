@@ -18,6 +18,9 @@ export default class TrendLine {
                 this.line = new core.lib.HorizontalLine(core)
                 break
             case 'segment':
+            case 'line':
+            case 'ray':
+            default:
                 this.line = new core.lib.Segment(core)
                 break
         }
@@ -25,7 +28,7 @@ export default class TrendLine {
         this.pins = [
             new core.lib.Pin(core, this, 'p1')
         ]
-        if (line.type === 'segment') {
+        if (line.type !== 'horizontal') {
             this.pins.push(new core.lib.Pin(core, this, 'p2'))
             if (nw) {
                 this.pins[1].state = 'tracking'
@@ -115,7 +118,7 @@ export default class TrendLine {
                     if (event.preventDefault) event.preventDefault()
                 }
             }
-        } else if (this.data.type === 'segment') {
+        } else {
             if (!pinHovered && this.collision()) {
                 this.isDragging = true
                 const curT = this.core.cursor.time
@@ -183,7 +186,7 @@ export default class TrendLine {
                     if (this.data.p2) this.data.p2[1] = this.data.p1[1]
                 }
                 this.core.events.emit('set-cursor', 'ns-resize')
-            } else if (this.data.type === 'segment') {
+            } else {
                 const currentT = this.core.cursor.time
                 const currentY$ = this.core.layout.y2value(this.core.cursor.y)
 
@@ -191,20 +194,18 @@ export default class TrendLine {
                     const dt = currentT - this.dragStart.t
                     const dy = currentY$ - this.dragStart.y$
 
-                    this.data.p1[0] = this.dragStart.p1[0] + dt
-                    this.data.p1[1] = this.dragStart.p1[1] + dy
-                    this.pins[0].t = this.data.p1[0]
-                    this.pins[0].y$ = this.data.p1[1]
+                    this.pins[0].t = this.dragStart.p1[0] + dt
+                    this.pins[0].y$ = this.dragStart.p1[1] + dy
+                    this.data.p1 = [this.pins[0].t, this.pins[0].y$]
 
-                    if (this.data.p2 && this.pins[1]) {
-                        this.data.p2[0] = this.dragStart.p2[0] + dt
-                        this.data.p2[1] = this.dragStart.p2[1] + dy
-                        this.pins[1].t = this.data.p2[0]
-                        this.pins[1].y$ = this.data.p2[1]
-                    }
+                    this.pins[1].t = this.dragStart.p2[0] + dt
+                    this.pins[1].y$ = this.dragStart.p2[1] + dy
+                    this.data.p2 = [this.pins[1].t, this.pins[1].y$]
                 }
                 this.core.events.emit('set-cursor', 'grabbing')
             }
+            this.core.events.emit('update-layout')
+            return
         } else {
             if (this.data.type === 'horizontal') {
                 if (this.collision() || this.pins.some(p => p.hover())) {

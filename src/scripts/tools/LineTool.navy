@@ -17,17 +17,26 @@ init() {
         lines[line.uuid].onSelect = lineSelected
     }
 
-    $events.on($core.dataExt.uuid + ':tool-line', event => {
-        console.log("evento tool-line", event)
-        type = event
+    const handleToolLine = event => {
+        type = event || 'segment'
         startDrawTool = true
+    }
+    $events.on($core.uuid + ':tool-line', handleToolLine)
+    if ($core.dataExt && $core.dataExt.uuid) {
+        $events.on($core.dataExt.uuid + ':tool-line', handleToolLine)
+    }
+
+    $events.on($core.uuid + ':tool-started', activeUuid => {
+        if (activeUuid !== $core.uuid) {
+            startDrawTool = false
+        }
     })
 
     $events.on($core.uuid + ':delete-tool', uuid => {
         if (lines[uuid]) removeLine(uuid)
     })
 
-    $events.on('selection-event', data => {
+    $events.on($core.uuid + ':selection-event', data => {
         if (data && data.overlayUuid !== $core.uuid) {
             let changed = false
             for (var uuid in lines) {
@@ -99,6 +108,7 @@ newLine() {
     lines[uuid].onSelect = lineSelected
     lines[uuid].selected = true
 
+    $events.emit('tool-started', $core.uuid)
     $events.emit('scroll-lock', true)
     $events.emit('update-layout')
     startDrawTool = false

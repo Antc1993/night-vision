@@ -15,15 +15,25 @@ init() {
         measures[m.uuid].onSelect = measureSelected
     }
 
-    $events.on($core.dataExt.uuid + ':tool-measure', event => {
+    const handleToolMeasure = event => {
         startDrawTool = true
+    }
+    $events.on($core.uuid + ':tool-measure', handleToolMeasure)
+    if ($core.dataExt && $core.dataExt.uuid) {
+        $events.on($core.dataExt.uuid + ':tool-measure', handleToolMeasure)
+    }
+
+    $events.on($core.uuid + ':tool-started', activeUuid => {
+        if (activeUuid !== $core.uuid) {
+            startDrawTool = false
+        }
     })
 
     $events.on($core.uuid + ':delete-tool', uuid => {
         if (measures[uuid]) removeMeasure(uuid)
     })
 
-    $events.on('selection-event', data => {
+    $events.on($core.uuid + ':selection-event', data => {
         if (data && data.overlayUuid !== $core.uuid) {
             let changed = false
             for (var uuid in measures) {
@@ -99,6 +109,7 @@ newMeasure() {
     measures[uuid].onSelect = measureSelected
     measures[uuid].selected = false
 
+    $events.emit('tool-started', $core.uuid)
     $events.emit('scroll-lock', true)
     $events.emit('update-layout')
     startDrawTool = false
