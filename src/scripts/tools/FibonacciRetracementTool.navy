@@ -1,64 +1,134 @@
 // Navy ~ 0.2-lite
-// <ds>Drawing lines [Tap + Hold]</ds>
+// <ds>Fibonacci Retracement Tool [Tap + Hold]</ds>
 
-[OVERLAY name=LineTool, ctx=Canvas, verion=1.0.0]
+[OVERLAY name = FibonacciRetracementTool, ctx = Canvas, verion = 1.0.0]
 
 let timeId = null
 let mouseX = 0
-let lines = {} // Line objects stored by uuid
+let fibos = {} // Fibonacci objects stored by uuid
+let startDrawTool = false
 
 init() {
-    // Restore lines from dataExt
-    for (var line of $core.dataExt.lines || []) {
-        lines[line.uuid] = new $lib.TrendLine($core, line)
-        lines[line.uuid].onSelect = lineSelected
+    // Restore fibos from dataExt
+    for (var fibo of $core.dataExt.fibos || []) {
+        fibos[fibo.uuid] = new $lib.FiboRetracement($core, fibo)
+        fibos[fibo.uuid].onSelect = fiboSelected
     }
+
+    $events.on($core.dataExt.uuid + ':tool-fibos', event => {
+        console.log("evento tool-fibos", event)
+        startDrawTool = true
+    })
+
+    $events.on($core.uuid + ':delete-tool', uuid => {
+        if (fibos[uuid]) removeFibo(uuid)
+    })
+
+    $events.on('selection-event', data => {
+        if (data && data.overlayUuid !== $core.uuid) {
+            let changed = false
+            for (var uuid in fibos) {
+                if (fibos[uuid].selected) {
+                    fibos[uuid].selected = false
+                    changed = true
+                }
+            }
+            if (changed) $events.emit('update-layout')
+        }
+    })
+
+    $events.on($core.uuid + ':update-settings', data => {
+        const { uuid, settings, p1, p2 } = data
+        if (fibos[uuid]) {
+            if (settings) {
+                fibos[uuid].data.settings = Object.assign(fibos[uuid].data.settings || {}, settings)
+            }
+            if (p1) {
+                fibos[uuid].data.p1 = p1
+                if (fibos[uuid].pins[0]) {
+                    fibos[uuid].pins[0].t = p1[0]
+                    fibos[uuid].pins[0].y$ = p1[1]
+                }
+            }
+            if (p2) {
+                fibos[uuid].data.p2 = p2
+                if (fibos[uuid].pins[1]) {
+                    fibos[uuid].pins[1].t = p2[0]
+                    fibos[uuid].pins[1].y$ = p2[1]
+                }
+            }
+            const d = $core.dataExt.fibos.find(x => x.uuid === uuid)
+            if (d) {
+                if (settings) d.settings = Object.assign(d.settings || {}, settings)
+                if (p1) d.p1 = p1
+                if (p2) d.p2 = p2
+            }
+            $events.emit('update-layout')
+        }
+    })
 }
 
 draw(ctx) {
-    for (var line of Object.values(lines)) {
-        line.draw(ctx)
+    for (var fibo of Object.values(fibos)) {
+        fibo.draw(ctx)
     }
 }
 
-newLine() {
+newFibo() {
 
-    if (unfinishedLines() || mouseMoved()) return
-
-    if (!$core.dataExt.lines) {
-        $core.dataExt.lines = []
+    if (!$core.dataExt.fibos) {
+        $core.dataExt.fibos = []
     }
 
     let t = $core.cursor.time
     let $ = $core.layout.y2value($core.cursor.y)
     let uuid = $lib.Utils.uuid3()
-    
-    let line = {
-        type: 'segment',
+
+    let fibo = {
         p1: [t, $],
         p2: [t, $],
         uuid: uuid
     }
-    $core.dataExt.lines.push(line)
-    lines[uuid] = new $lib.TrendLine($core, line, true)
-    lines[uuid].onSelect = lineSelected
-    lines[uuid].selected = true
+
+    $core.dataExt.fibos.push(fibo)
+    fibos[uuid] = new $lib.FiboRetracement($core, fibo, true)
+
+    fibos[uuid].onSelect = fiboSelected
+    fibos[uuid].selected = true
 
     $events.emit('scroll-lock', true)
     $events.emit('update-layout')
-
+    startDrawTool = false
 }
 
-lineSelected($uuid) {
-    for (var uuid in lines) {
-        lines[uuid].selected = uuid === $uuid
+fiboSelected($uuid) {
+    let selectedFibo = null;
+    for (var uuid in fibos) {
+        fibos[uuid].selected = uuid === $uuid
+        if (fibos[uuid].selected) selectedFibo = fibos[uuid]
     }
     $events.emit('update-layout')
+
+    if (selectedFibo) {
+        $events.emit('selection-event', {
+            uuid: $uuid,
+            overlayUuid: $core.uuid,
+            type: 'fibonacci',
+            settings: selectedFibo.data.settings || {},
+            data: selectedFibo.data,
+            x: $core.mouse ? $core.mouse.x : 0,
+            y: $core.mouse ? $core.mouse.y : 0,
+            gridOffset: $core.layout.sbMax[0],
+            paneOffset: $core.layout.offset
+        })
+    } else {
+        $events.emit('selection-event', null)
+    }
 }
 
-unfinishedLines() {
-    for (var line of Object.values(lines)) {
-        if (line.pins.some(x => x.state !== 'settled')) {
+unfinishedFibos() {
+    for (var fibo of Object.values(fibos)) {
+        if (fibo.pins.some(x => x.state !== 'settled')) {
             return true
         }
     }
@@ -70,30 +140,58 @@ mouseMoved() {
     return d > 5
 }
 
-removeLine(uuid) {
-    delete lines[uuid]
-    $core.dataExt.lines.filter(x => x.uuid !== uuid)
+removeFibo(uuid) {
+    delete fibos[uuid]
+    $core.dataExt.fibos = $core.dataExt.fibos.filter(x => x.uuid !== uuid)
     $events.emit('update-layout')
+    /*  $events.emit('floating-toolbar:selection-event', null) */
 }
 
 propagate(name, data) {
-    // TODO: sort by z-index
-    for (var line of Object.values(lines)) {
-        line[name](data)
+    const list = (name === 'mousedown' || name === 'click') ? Object.values(fibos).slice().reverse() : Object.values(fibos)
+    for (var fibo of list) {
+        fibo[name](data)
     }
-} 
+}
 
 mousedown(event) {
-    timeId = setTimeout(newLine, 1000)
+    if (startDrawTool) {
+        newFibo()
+        return
+    }
+
+    const drawingFibo = Object.values(fibos).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
+    if (drawingFibo) {
+        drawingFibo.mousedown(event)
+        return
+    }
+
+    if (event && (event.__toolCaptured || $lib.Utils.defaultPrevented(event))) {
+        return
+    }
+
     mouseX = $core.mouse.x
-    lineSelected(null)
+
+    let hit = false
+    for (var fibo of Object.values(fibos).slice().reverse()) {
+        if (fibo.collision() || fibo.pins.some(p => p.hover())) {
+            hit = true
+            break
+        }
+    }
+
+    if (!hit) {
+        const hadSelected = Object.values(fibos).some(x => x.selected)
+        if (hadSelected) {
+            fiboSelected(null)
+        }
+    }
+
     $events.emit('update-layout')
     propagate('mousedown', event)
 }
 
 mouseup(event) {
-    clearTimeout(timeId)
-    timeId = null
     propagate('mouseup', event)
 }
 
@@ -103,8 +201,8 @@ mousemove(event) {
 
 keydown(event) {
     if (event.code === 'Backspace') {
-        let s = Object.values(lines).find(x => x.selected)
-        if (s) removeLine(s.data.uuid)
+        let s = Object.values(fibos).find(x => x.selected)
+        if (s) removeFibo(s.data.uuid)
     }
 }
 

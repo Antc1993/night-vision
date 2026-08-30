@@ -1,7 +1,7 @@
 // Navy ~ 0.2-lite
 // <ds>Drawing rectangles [Tap + Hold]</ds>
 
-[OVERLAY name=RectTool, ctx=Canvas, verion=1.0.0]
+[OVERLAY name = RectTool, ctx = Canvas, verion = 1.0.0]
 
 let timeId = null
 let mouseX = 0
@@ -9,28 +9,76 @@ let rectangles = {} // Line objects stored by uuid
 let startDrawTool = false
 init() {
     // Restore rectangles from dataExt
+    console.log("RectTool init: rectangles in dataExt:", $core.dataExt.rectangles)
     for (var rect of $core.dataExt.rectangles || []) {
-     
+        console.log("RectTool init: restoring rect:", rect.uuid, rect)
         rectangles[rect.uuid] = new $lib.Rectangle($core, rect)
         rectangles[rect.uuid].onSelect = rectangleselected
     }
-    
+
     $events.on($core.dataExt.uuid + ':tool-rectangle', event => {
+        console.log("Iniciando event de dibujado de rect" + $core.dataExt.uuid)
         startDrawTool = true
     })
-     
+
+    $events.on($core.uuid + ':delete-tool', uuid => {
+        if (rectangles[uuid]) removeLine(uuid)
+    })
+
+    $events.on('selection-event', data => {
+        if (data && data.overlayUuid !== $core.uuid) {
+            let changed = false
+            for (var uuid in rectangles) {
+                if (rectangles[uuid].selected) {
+                    rectangles[uuid].selected = false
+                    changed = true
+                }
+            }
+            if (changed) $events.emit('update-layout')
+        }
+    })
+
+    $events.on($core.uuid + ':update-settings', data => {
+        const { uuid, settings, p1, p2 } = data
+        if (rectangles[uuid]) {
+            if (settings) {
+                rectangles[uuid].data.settings = Object.assign(rectangles[uuid].data.settings || {}, settings)
+            }
+            if (p1) {
+                rectangles[uuid].data.p1 = p1
+                if (rectangles[uuid].pins[0]) {
+                    rectangles[uuid].pins[0].t = p1[0]
+                    rectangles[uuid].pins[0].y$ = p1[1]
+                }
+            }
+            if (p2) {
+                rectangles[uuid].data.p2 = p2
+                if (rectangles[uuid].pins[1]) {
+                    rectangles[uuid].pins[1].t = p2[0]
+                    rectangles[uuid].pins[1].y$ = p2[1]
+                }
+            }
+            const d = $core.dataExt.rectangles.find(x => x.uuid === uuid)
+            if (d) {
+                if (settings) d.settings = Object.assign(d.settings || {}, settings)
+                if (p1) d.p1 = p1
+                if (p2) d.p2 = p2
+            }
+            rectangles[uuid].update()
+            $events.emit('update-layout')
+        }
+    })
+
 }
 
 draw(ctx) {
-   
-   for (var rect of Object.values(rectangles)) {
+
+    for (var rect of Object.values(rectangles)) {
         rect.draw(ctx)
-    } 
+    }
 }
 
 newRectangle() {
-
-    if (unfinishedrectangles() || mouseMoved()) return
 
     if (!$core.dataExt.rectangles) {
         $core.dataExt.rectangles = []
@@ -39,16 +87,16 @@ newRectangle() {
     let t = $core.cursor.time
     let $ = $core.layout.y2value($core.cursor.y)
     let uuid = $lib.Utils.uuid3()
-    
+
     let rect = {
         type: 'segment',
         p1: [t, $],
         p2: [t, $],
- 
-      
+
+
         uuid: uuid
     }
-    console.log(rect)
+
     $core.dataExt.rectangles.push(rect)
     rectangles[uuid] = new $lib.Rectangle($core, rect, true)
 
@@ -57,14 +105,34 @@ newRectangle() {
 
     $events.emit('scroll-lock', true)
     $events.emit('update-layout')
-
+    startDrawTool = false
 }
 
 rectangleselected($uuid) {
+    console.log("RectTool rectangleselected called with uuid:", $uuid)
+    let selectedRect = null;
     for (var uuid in rectangles) {
         rectangles[uuid].selected = uuid === $uuid
+        if (rectangles[uuid].selected) selectedRect = rectangles[uuid]
     }
+    console.log("RectTool selectedRect uuid:", selectedRect ? selectedRect.data.uuid : "null")
     $events.emit('update-layout')
+
+    if (selectedRect) {
+        $events.emit('selection-event', {
+            uuid: $uuid,
+            overlayUuid: $core.uuid,
+            type: 'rectangle',
+            settings: selectedRect.data.settings || {},
+            data: selectedRect.data,
+            x: $core.mouse ? $core.mouse.x : 0,
+            y: $core.mouse ? $core.mouse.y : 0,
+            gridOffset: $core.layout.sbMax[0],
+            paneOffset: $core.layout.offset
+        })
+    } else {
+        $events.emit('selection-event', null)
+    }
 }
 
 unfinishedrectangles() {
@@ -83,27 +151,57 @@ mouseMoved() {
 
 removeLine(uuid) {
     delete rectangles[uuid]
-    $core.dataExt.rectangles.filter(x => x.uuid !== uuid)
+    $core.dataExt.rectangles = $core.dataExt.rectangles.filter(x => x.uuid !== uuid)
     $events.emit('update-layout')
+
 }
 
 propagate(name, data) {
-    // TODO: sort by z-index
-    for (var rect of Object.values(rectangles)) {
+    const list = (name === 'mousedown' || name === 'click') ? Object.values(rectangles).slice().reverse() : Object.values(rectangles)
+    for (var rect of list) {
         rect[name](data)
     }
-} 
+}
 
 mousedown(event) {
-   
+    if (startDrawTool) {
+        newRectangle()
+        return
+    }
+
+    const drawingRect = Object.values(rectangles).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
+    if (drawingRect) {
+        drawingRect.mousedown(event)
+        return
+    }
+
+    if (event && (event.__toolCaptured || $lib.Utils.defaultPrevented(event))) {
+        return
+    }
+
     mouseX = $core.mouse.x
-    rectangleselected(null)
+
+    let hit = false
+    for (var rect of Object.values(rectangles).slice().reverse()) {
+        if (rect.collision() || rect.pins.some(p => p.hover())) {
+            hit = true
+            break
+        }
+    }
+
+    if (!hit) {
+        const hadSelected = Object.values(rectangles).some(x => x.selected)
+        if (hadSelected) {
+            rectangleselected(null)
+        }
+    }
+
     $events.emit('update-layout')
     propagate('mousedown', event)
 }
 
 mouseup(event) {
-    
+
     propagate('mouseup', event)
 }
 

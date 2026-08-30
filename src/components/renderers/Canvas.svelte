@@ -130,7 +130,12 @@ function resizeWatch() {
 
 </script>
 <style>
-.nvjs-canvas-rendrer {}
+.nvjs-canvas-rendrer {
+    cursor: crosshair;
+}
+.nvjs-canvas-rendrer canvas {
+    cursor: crosshair;
+}
 </style>
 <div id={rrId} style={rrStyle}
     class="nvjs-canvas-rendrer">

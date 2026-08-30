@@ -37,9 +37,16 @@ class Events {
     // components
 
     // Add event listener to a specific component:
-    // '<component>:<event-type>'
+    // '<component>:<event-type>' or simply '<event-type>'
     on(compAndType, f) {
-        let [comp, type] = compAndType.split(':')
+        let parts = compAndType.split(':')
+        let comp, type
+        if (parts.length === 1) {
+            comp = 'root'
+            type = parts[0]
+        } else {
+            [comp, type] = parts
+        }
         if (!this.handlers[type]) {
             this.handlers[type] = {}
         }
@@ -47,7 +54,13 @@ class Events {
     }
 
     // Remove event listeners / one listener
-    off(comp, type = null) {
+    off(compAndType, type = null) {
+        let comp = compAndType
+        if (compAndType.includes(':')) {
+            let parts = compAndType.split(':')
+            comp = parts[0]
+            type = parts[1]
+        }
         // Remove one listener
         if (type && this.handlers[type]) {
             delete this.handlers[type][comp]
@@ -55,8 +68,8 @@ class Events {
         }
 
         // Clear all listeners on the component
-        for (var type in this.handlers) {
-            delete this.handlers[type][comp]
+        for (var t in this.handlers) {
+            delete this.handlers[t][comp]
         }
     }
 

@@ -192,15 +192,16 @@ function update($layout = layout) {
 
 function propagate(e) {
     let { name, event } = e
-    for (var layer of layers) {
-        if (layer.overlay[name]) {
-            layer.overlay[name](event)
-        }
+    const orderedLayers = (name.startsWith('mouse') || name === 'click') ? layers.slice().reverse() : layers
+    for (var layer of orderedLayers) {
         if (layer.env.$core) {
             const mouse = layer.env.$core.mouse
             const keys = layer.env.$core.keys
             mouse.emit(name, event)
             keys.emit(name, event)
+        }
+        if (layer.overlay[name]) {
+            layer.overlay[name](event)
         }
     }
 }

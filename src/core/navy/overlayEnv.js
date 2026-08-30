@@ -22,16 +22,19 @@ import avgVolume from '../primitives/navyLib/avgVolume.js'
 import roundRect from '../primitives/navyLib/roundRect.js'
 import drawArrow from '../primitives/navyLib/arrow.js'
 import TrendLine from '../primitives/navyLib/trendLine.js'
- 
+
 import Rectangle from '../primitives/navyLib/rectangle.js'
- 
+import FiboRetracement from '../primitives/navyLib/fiboRetracement.js'
+import Measure from '../primitives/navyLib/measure.js'
+
 import Segment from '../primitives/navyLib/seg.js'
- 
+import HorizontalLine from '../primitives/navyLib/horizontalLine.js'
+
 import Pin from '../primitives/navyLib/pin.js'
 import {
     fastSma, candleColor, rescaleFont
 } from '../primitives/navyLib/helperFns.js'
- 
+
 
 const formatCash = Utils.formatCash
 
@@ -62,13 +65,13 @@ export default class OverlayEnv {
         this.lib = {
             Candle, Volbar, layoutCnv, formatCash,
             candleBody, candleWick, volumeBar,
-            fastSma, avgVolume, candleColor, 
-            roundRect, rescaleFont, drawArrow, 
-            TrendLine, Segment,  Pin,  Rectangle,
+            fastSma, avgVolume, candleColor,
+            roundRect, rescaleFont, drawArrow,
+            TrendLine, Segment, HorizontalLine, Pin, Rectangle, FiboRetracement, Measure,
             Utils
         }
 
-        this.$core.lib = this.lib 
+        this.$core.lib = this.lib
 
     }
 

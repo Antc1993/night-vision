@@ -8,24 +8,41 @@ export default class TrendLine {
         this.data = line
         this.hover = false
         this.selected = false
-        this.onSelect = () => {}
+        this.onSelect = () => { }
+        this.isDrawing = false
+        this.isDragging = false
+        this.dragStart = null
+
         switch (line.type) {
+            case 'horizontal':
+                this.line = new core.lib.HorizontalLine(core)
+                break
             case 'segment':
                 this.line = new core.lib.Segment(core)
-            break
+                break
         }
+
         this.pins = [
-            new core.lib.Pin(core, this, 'p1'),
-            new core.lib.Pin(core, this, 'p2')
+            new core.lib.Pin(core, this, 'p1')
         ]
-        if (nw) this.pins[1].state = 'tracking'
+        if (line.type === 'segment') {
+            this.pins.push(new core.lib.Pin(core, this, 'p2'))
+            if (nw) {
+                this.pins[1].state = 'tracking'
+                this.isDrawing = true
+            }
+        } else if (nw) {
+            this.pins[0].state = 'tracking'
+            this.isDrawing = true
+        }
     }
 
     draw(ctx) {
-
         this.line.update(this.data.p1, this.data.p2)
-        ctx.lineWidth = 1
-        ctx.strokeStyle = '#33ff33'
+
+        const sett = this.data.settings || {}
+        ctx.lineWidth = sett.lineWidth || 1
+        ctx.strokeStyle = sett.color || '#33ff33'
         ctx.beginPath()
         this.line.draw(ctx)
         ctx.stroke()
@@ -39,30 +56,200 @@ export default class TrendLine {
 
     collision() {
         const mouse = this.core.mouse
-        let [x, y] = [mouse.x, mouse.y]
+        let [x, y] = [mouse ? mouse.x : 0, mouse ? mouse.y : 0]
+        if (this.data && this.data.p1) {
+            this.line.update(this.data.p1, this.data.p2)
+        }
         return this.line.collision(x, y)
     }
 
     propagate(name, data) {
-        
         for (var pin of this.pins) {
             pin[name](data)
         }
-    } 
+    }
 
     mousedown(event) {
+        if (this.isDrawing) {
+            const trackingPin = this.pins.find(p => p.state === 'tracking')
+            if (trackingPin) {
+                trackingPin.mousedown(event)
+                this.isDrawing = false
+                this.core.events.emit('scroll-lock', false)
+                this.onSelect(this.data.uuid)
+                this.core.events.emit('update-layout')
+                if (event) {
+                    event.__toolCaptured = true
+                    if (event.preventDefault) event.preventDefault()
+                }
+                return
+            }
+            this.isDrawing = false
+        }
+
+        if (event && (event.__toolCaptured || this.core.lib.Utils.defaultPrevented(event))) {
+            return
+        }
+
+        const pinHovered = this.pins.some(p => p.hover())
+
         this.propagate('mousedown', event)
-        if (this.collision()) {
+
+        if (this.collision() || pinHovered) {
             this.onSelect(this.data.uuid)
+            if (event) event.__toolCaptured = true
+        }
+
+        if (this.data.type === 'horizontal') {
+            if (this.collision() || pinHovered) {
+                this.isDragging = true
+                const curY = this.core.layout.y2value(this.core.cursor.y)
+                this.dragStart = {
+                    y$: curY,
+                    p1_y$: this.data.p1[1]
+                }
+                this.core.events.emit('scroll-lock', true)
+                this.core.events.emit('set-cursor', 'ns-resize')
+                if (event) {
+                    event.__toolCaptured = true
+                    if (event.preventDefault) event.preventDefault()
+                }
+            }
+        } else if (this.data.type === 'segment') {
+            if (!pinHovered && this.collision()) {
+                this.isDragging = true
+                const curT = this.core.cursor.time
+                const curY = this.core.layout.y2value(this.core.cursor.y)
+                this.dragStart = {
+                    t: curT,
+                    y$: curY,
+                    p1: [...this.data.p1],
+                    p2: [...(this.data.p2 || this.data.p1)]
+                }
+                this.core.events.emit('scroll-lock', true)
+                this.core.events.emit('set-cursor', 'grabbing')
+                if (event) {
+                    event.__toolCaptured = true
+                    if (event.preventDefault) event.preventDefault()
+                }
+            }
         }
     }
 
     mouseup(event) {
+        if (this.isDragging) {
+            this.isDragging = false
+            this.dragStart = null
+            this.core.events.emit('scroll-lock', false)
+        }
+
+        if (this.isDrawing) {
+            return
+        }
+
         this.propagate('mouseup', event)
+
+        if (this.data.type === 'horizontal') {
+            if (this.collision() || this.pins.some(p => p.hover())) {
+                this.core.events.emit('set-cursor', 'ns-resize')
+            }
+        } else {
+            const hoveredPin = this.pins.find(p => p.hover())
+            if (hoveredPin) {
+                this.core.events.emit('set-cursor', this.getPinCursor(hoveredPin))
+            } else if (this.collision()) {
+                this.core.events.emit('set-cursor', 'pointer')
+            }
+        }
     }
 
     mousemove(event) {
+        if (this.isDrawing) {
+            const trackingPin = this.pins.find(p => p.state === 'tracking')
+            if (trackingPin) {
+                trackingPin.mousemove(event)
+                this.core.events.emit('update-layout')
+            }
+            return
+        }
+
+        if (this.isDragging && this.dragStart) {
+            if (this.data.type === 'horizontal') {
+                const currentY$ = this.core.layout.y2value(this.core.cursor.y)
+                if (currentY$ !== undefined) {
+                    const dy = currentY$ - this.dragStart.y$
+                    this.data.p1[1] = this.dragStart.p1_y$ + dy
+                    this.pins[0].y$ = this.data.p1[1]
+                    if (this.data.p2) this.data.p2[1] = this.data.p1[1]
+                }
+                this.core.events.emit('set-cursor', 'ns-resize')
+            } else if (this.data.type === 'segment') {
+                const currentT = this.core.cursor.time
+                const currentY$ = this.core.layout.y2value(this.core.cursor.y)
+
+                if (currentT !== undefined && currentY$ !== undefined) {
+                    const dt = currentT - this.dragStart.t
+                    const dy = currentY$ - this.dragStart.y$
+
+                    this.data.p1[0] = this.dragStart.p1[0] + dt
+                    this.data.p1[1] = this.dragStart.p1[1] + dy
+                    this.pins[0].t = this.data.p1[0]
+                    this.pins[0].y$ = this.data.p1[1]
+
+                    if (this.data.p2 && this.pins[1]) {
+                        this.data.p2[0] = this.dragStart.p2[0] + dt
+                        this.data.p2[1] = this.dragStart.p2[1] + dy
+                        this.pins[1].t = this.data.p2[0]
+                        this.pins[1].y$ = this.data.p2[1]
+                    }
+                }
+                this.core.events.emit('set-cursor', 'grabbing')
+            }
+        } else {
+            if (this.data.type === 'horizontal') {
+                if (this.collision() || this.pins.some(p => p.hover())) {
+                    this.core.events.emit('set-cursor', 'ns-resize')
+                }
+            } else {
+                const activePin = this.pins.find(p => p.state === 'dragging' || p.state === 'tracking')
+                const hoveredPin = this.pins.find(p => p.hover())
+                const targetPin = activePin || hoveredPin
+
+                if (targetPin) {
+                    this.core.events.emit('set-cursor', this.getPinCursor(targetPin))
+                } else if (this.collision()) {
+                    this.core.events.emit('set-cursor', 'pointer')
+                }
+            }
+        }
+
         this.hover = this.collision()
         this.propagate('mousemove', event)
+    }
+
+    getPinCursor(pin) {
+        if (this.data.type === 'horizontal') return 'ns-resize'
+
+        const layout = this.core.layout
+        const p1 = this.data.p1
+        const p2 = this.data.p2
+        if (!p1 || !p2) return 'pointer'
+
+        const x1 = layout.time2x(p1[0])
+        const y1 = layout.value2y(p1[1])
+        const x2 = layout.time2x(p2[0])
+        const y2 = layout.value2y(p2[1])
+
+        const dx = x2 - x1
+        const dy = y2 - y1
+
+        if (Math.abs(dy) < 6) return 'ew-resize'
+        if (Math.abs(dx) < 6) return 'ns-resize'
+
+        if ((dx * dy) > 0) {
+            return 'nwse-resize'
+        } else {
+            return 'nesw-resize'
+        }
     }
 }

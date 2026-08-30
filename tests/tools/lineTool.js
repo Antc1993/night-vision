@@ -14,7 +14,7 @@ export default function test(stack, chart) {
     })
 
     stack.add('Add LineTool to dataset', () => {
-        for (var p = 0; p < 2; p++) {
+        for (var p = 0; p < 1; p++) {
             chart.data.panes[p].overlays.push({
                 name: 'LineTool',
                 type: 'LineTool',

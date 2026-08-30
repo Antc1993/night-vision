@@ -92,14 +92,16 @@ export default class Pin {
     }
 
     mousemove(event) {
-
+        
         switch (this.state) {
+
             case 'tracking':
+        
                 this.moved = true
                 this.update()
                 break
             case 'dragging':
-             
+     
                 this.moved = true
                 this.update()
                 break
@@ -109,10 +111,8 @@ export default class Pin {
     }
 
     mousedown(event, force = false) {
+        if (!force && event && (event.__toolCaptured || this.core.lib.Utils.defaultPrevented(event))) return
 
-       
-        const Utils = this.core.lib.Utils
-        if (Utils.defaultPrevented(event) && !force) return
         switch (this.state) {
             case 'tracking':
                 this.state = 'settled'
@@ -125,13 +125,19 @@ export default class Pin {
                     this.state = 'dragging'
                     this.moved = false
                     this.core.events.emit('scroll-lock', true)
-                    //TODO: this.core.events.emit('object-selected') 
+                    if (event) {
+                        event.__toolCaptured = true
+                        if (event.preventDefault) event.preventDefault()
+                    }
                 }
                 break
         }
-     
+
         if (this.hover()) {
-            event.preventDefault()
+            if (event) {
+                event.__toolCaptured = true
+                if (event.preventDefault) event.preventDefault()
+            }
         }
     }
 
@@ -142,13 +148,10 @@ export default class Pin {
             case 'dragging':
                 this.state = 'settled'
                 if (this.onSettled) this.onSettled()
-              
                 this.core.events.emit('scroll-lock', false)
                 break
             case 'tracking':
-                this.state = 'settled'
-                if (this.onSettled) this.onSettled()
-                this.core.events.emit('scroll-lock', false)
+                // Continue tracking the cursor until the next click (mousedown)
                 break
         }
     }
@@ -163,13 +166,17 @@ export default class Pin {
     }
 
     hover() {
-        let x = this.x
-        let y = this.y
-        
+        let x = this.core.layout.time2x(this.t)
+        let y = this.core.layout.value2y(this.y$)
+        this.x = x
+        this.y = y
+        let mx = this.core.mouse ? this.core.mouse.x : this.mouse.x
+        let my = this.core.mouse ? this.core.mouse.y : this.mouse.y
+
         return (
-            (x - this.mouse.x) * (x - this.mouse.x) +
-            (y - this.mouse.y) * (y - this.mouse.y)
-        ) < this.RADIUS_SQ
+            (x - mx) * (x - mx) +
+            (y - my) * (y - my)
+        ) < (this.RADIUS_SQ || 100)
     }
 
 }

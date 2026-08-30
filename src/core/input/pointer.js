@@ -41,6 +41,14 @@ export default class Input {
         this.meta = MetaHub.instance(this.props.id)
         this.events = Events.instance(this.props.id)
 
+        this.onSetCursor = cursor => {
+            if (this.canvas) {
+                this.canvas.style.cursor = cursor || 'crosshair'
+            }
+        }
+        this.events.on(`pointer-${this.gridId}:set-cursor`, this.onSetCursor)
+        this.events.on('set-cursor', this.onSetCursor)
+
         await this.listeners()
         this.mouseEvents('addEventListener')
     }
@@ -72,7 +80,7 @@ export default class Input {
         if (Utils.isMobile) mc.add(new Hammer.Press())
 
         mc.on('panstart', event => {
-            if (this.cursor.scroll_lock) return
+            if (this.meta.scrollLock) return
             if (this.cursor.mode === 'aim') {
                 return this.emitCursorCoord(event)
             }
@@ -99,6 +107,10 @@ export default class Input {
         })
 
         mc.on('panmove', event => {
+            if (this.meta.scrollLock) {
+                this.drug = null
+                return
+            }
             if (Utils.isMobile) {
                 this.calcOffset()
                 this.propagate('mousemove', this.touch2mouse(event))
@@ -183,6 +195,9 @@ export default class Input {
             y: event.layerY - 1 // Align with the crosshair
         })
         this.calcOffset()
+        if (this.canvas && !this.drug) {
+            this.canvas.style.cursor = 'crosshair'
+        }
         this.propagate('mousemove', event)
     }
 
@@ -190,6 +205,9 @@ export default class Input {
         if (Utils.isMobile) return
         event = Utils.adjustMouse(event, this.canvas)
         this.events.emit('cursor-changed', { visible: false })
+        if (this.canvas) {
+            this.canvas.style.cursor = 'crosshair'
+        }
         this.propagate('mouseout', event)
     }
 
@@ -450,6 +468,9 @@ export default class Input {
     }
 
     destroy() {
+        if (this.onSetCursor) {
+            this.events.off('set-cursor', this.onSetCursor)
+        }
         let rm = this.canvas.removeEventListener
         rm("gesturestart", this.gesturestart)
         rm("gesturechange", this.gesturechange)

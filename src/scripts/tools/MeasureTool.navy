@@ -1,0 +1,187 @@
+// Navy ~ 0.2-lite
+// <ds>Measure Tool (Price and Date Range) [Tap + Hold]</ds>
+
+[OVERLAY name = MeasureTool, ctx = Canvas, verion = 1.0.0]
+
+let timeId = null
+let mouseX = 0
+let measures = {} // Measure objects stored by uuid
+let startDrawTool = false
+
+init() {
+    // Restore measures from dataExt
+    for (var m of $core.dataExt.measures || []) {
+        measures[m.uuid] = new $lib.Measure($core, m)
+        measures[m.uuid].onSelect = measureSelected
+    }
+
+    $events.on($core.dataExt.uuid + ':tool-measure', event => {
+        startDrawTool = true
+    })
+
+    $events.on($core.uuid + ':delete-tool', uuid => {
+        if (measures[uuid]) removeMeasure(uuid)
+    })
+
+    $events.on('selection-event', data => {
+        if (data && data.overlayUuid !== $core.uuid) {
+            let changed = false
+            for (var uuid in measures) {
+                if (measures[uuid].selected) {
+                    measures[uuid].selected = false
+                    changed = true
+                }
+            }
+            if (changed) $events.emit('update-layout')
+        }
+    })
+
+    $events.on($core.uuid + ':update-settings', data => {
+        const { uuid, settings, p1, p2 } = data
+        if (measures[uuid]) {
+            if (settings) {
+                measures[uuid].data.settings = Object.assign(measures[uuid].data.settings || {}, settings)
+            }
+            if (p1) {
+                measures[uuid].data.p1 = p1
+                if (measures[uuid].pins[0]) {
+                    measures[uuid].pins[0].t = p1[0]
+                    measures[uuid].pins[0].y$ = p1[1]
+                }
+            }
+            if (p2) {
+                measures[uuid].data.p2 = p2
+                if (measures[uuid].pins[1]) {
+                    measures[uuid].pins[1].t = p2[0]
+                    measures[uuid].pins[1].y$ = p2[1]
+                }
+            }
+            const d = $core.dataExt.measures.find(x => x.uuid === uuid)
+            if (d) {
+                if (settings) d.settings = Object.assign(d.settings || {}, settings)
+                if (p1) d.p1 = p1
+                if (p2) d.p2 = p2
+            }
+            $events.emit('update-layout')
+        }
+    })
+}
+
+draw(ctx) {
+    for (var m of Object.values(measures)) {
+        m.draw(ctx)
+    }
+}
+
+newMeasure() {
+    // Clear any previous measure
+    for (var u of Object.keys(measures)) {
+        removeMeasure(u)
+    }
+
+    if (!$core.dataExt.measures) {
+        $core.dataExt.measures = []
+    }
+
+    let t = $core.cursor.time
+    let $ = $core.layout.y2value($core.cursor.y)
+    let uuid = $lib.Utils.uuid3()
+
+    let m = {
+        type: 'measure',
+        p1: [t, $],
+        p2: [t, $],
+        uuid: uuid
+    }
+
+    $core.dataExt.measures.push(m)
+    measures[uuid] = new $lib.Measure($core, m, true)
+    measures[uuid].onSelect = measureSelected
+    measures[uuid].selected = false
+
+    $events.emit('scroll-lock', true)
+    $events.emit('update-layout')
+    startDrawTool = false
+}
+
+measureSelected($uuid) {
+    let selectedMeasure = null;
+    for (var uuid in measures) {
+        measures[uuid].selected = uuid === $uuid
+        if (measures[uuid].selected) selectedMeasure = measures[uuid]
+    }
+    $events.emit('update-layout')
+
+    if (selectedMeasure) {
+        $events.emit('selection-event', {
+            uuid: $uuid,
+            overlayUuid: $core.uuid,
+            type: 'measure',
+            settings: selectedMeasure.data.settings || {},
+            data: selectedMeasure.data,
+            x: $core.mouse ? $core.mouse.x : 0,
+            y: $core.mouse ? $core.mouse.y : 0,
+            gridOffset: $core.layout.sbMax[0],
+            paneOffset: $core.layout.offset
+        })
+    } else {
+        $events.emit('selection-event', null)
+    }
+}
+
+removeMeasure(uuid) {
+    delete measures[uuid]
+    if ($core.dataExt.measures) {
+        $core.dataExt.measures = $core.dataExt.measures.filter(x => x.uuid !== uuid)
+    }
+    $events.emit('update-layout')
+}
+
+propagate(name, data) {
+    const list = (name === 'mousedown' || name === 'click') ? Object.values(measures).slice().reverse() : Object.values(measures)
+    for (var m of list) {
+        m[name](data)
+    }
+}
+
+mousedown(event) {
+    if (startDrawTool) {
+        newMeasure()
+        return
+    }
+
+    const drawingMeasure = Object.values(measures).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
+    if (drawingMeasure) {
+        drawingMeasure.mousedown(event)
+        return
+    }
+
+    // If there is already a finished measure on screen, ANY click dismisses it
+    const existingUuids = Object.keys(measures)
+    if (existingUuids.length > 0) {
+        for (var u of existingUuids) {
+            removeMeasure(u)
+        }
+        $events.emit('update-layout')
+        $events.emit('selection-event', null)
+    }
+
+    propagate('mousedown', event)
+}
+
+mouseup(event) {
+    propagate('mouseup', event)
+}
+
+mousemove(event) {
+    propagate('mousemove', event)
+}
+
+keydown(event) {
+    if (event.code === 'Backspace') {
+        let s = Object.values(measures).find(x => x.selected)
+        if (s) removeMeasure(s.data.uuid)
+    }
+}
+
+legend() => null

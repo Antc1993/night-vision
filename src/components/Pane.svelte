@@ -34,7 +34,6 @@ $:style = `
     box-sizing: border-box;*/
 `
 
-console.log(layout.width)
 
 // EVENT INTEFACE
 events.on(`pane-${id}:update-pane`, update)
