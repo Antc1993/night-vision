@@ -9,7 +9,7 @@ let rectangles = {} // Line objects stored by uuid
 let startDrawTool = false
 init() {
     // Restore rectangles from dataExt
-    console.log("RectTool init: rectangles in dataExt:", $core.dataExt.rectangles)
+    
     for (var rect of $core.dataExt.rectangles || []) {
         console.log("RectTool init: restoring rect:", rect.uuid, rect)
         rectangles[rect.uuid] = new $lib.Rectangle($core, rect)

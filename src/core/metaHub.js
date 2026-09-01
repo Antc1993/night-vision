@@ -79,7 +79,8 @@ class MetaHub {
         vts[id] = overlay.valueTracker
 
         // Ohlc mapper function
-        let main = this.hub.overlay(gridId, id).main
+        let ov = this.hub.overlay(gridId, id)
+        let main = ov?.main
         if (main) {
             this.ohlcFn = overlay.ohlc
         }
@@ -95,7 +96,7 @@ class MetaHub {
     // TODO: should add support for indexBased? 
     calcOhlcMap() {
         this.ohlcMap = {}
-        let data = this.hub.mainOv.data
+        let data = this.hub.mainOv?.data || []
         for (var i = 0; i < data.length; i++) {
             this.ohlcMap[data[i][0]] = {
                 ref: data[i],

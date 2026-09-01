@@ -30,6 +30,14 @@ class DataHub {
         // EVENT INTERFACE
         events.on('hub:set-scale-index', this.onScaleIndex.bind(this))
         events.on('hub:display-overlay', this.onDisplayOv.bind(this))
+        events.on('hub:update-script-props', this.onUpdateScriptProps.bind(this))
+        events.on('hub:delete-script', this.onDeleteScript.bind(this))
+        events.on('hub:move-script', this.onMoveScript.bind(this))
+        events.on('hub:add-indicator', this.onAddIndicator.bind(this))
+        events.on('hub:move-pane', this.onMovePane.bind(this))
+        events.on('hub:delete-pane', this.onDeletePane.bind(this))
+        events.on('hub:maximize-pane', this.onMaximizePane.bind(this))
+        events.on('hub:collapse-pane', this.onCollapsePane.bind(this))
     }
 
     init(data) {
@@ -175,7 +183,7 @@ class DataHub {
 
     // [API] Get overlay ref by paneId & ovId
     overlay(paneId, ovId) {
-        return this.panes()[paneId]?.overlays[ovId]
+        return this.panes()[paneId]?.overlays?.[ovId]
     }
 
     // [API] Get overlay data by paneId & ovId
@@ -235,6 +243,277 @@ class DataHub {
         this.events.emitSpec('chart', 'update-layout')
         this.events.emitSpec(`ll-${llId}`, 'update-ll')
 
+    }
+
+    async updateScriptOrOverlay(paneId, ov, newProps, newSettings) {
+        let pane = this.panes()[paneId]
+        if (!pane) return
+
+        let wasScript = false
+        let script = null
+        if (ov.prod) {
+            script = (pane.scripts || []).find(s => s.uuid === ov.prod || s.id === ov.prod)
+        } else {
+            script = (pane.scripts || []).find(s => s.uuid === ov.uuid || s.type === ov.type)
+        }
+
+        if (script) {
+            script.props = Object.assign(script.props || {}, newProps)
+            if (newSettings) {
+                script.settings = Object.assign(script.settings || {}, newSettings)
+            }
+            wasScript = true
+        }
+
+        ov.props = Object.assign(ov.props || {}, newProps)
+        if (newSettings) {
+            ov.settings = Object.assign(ov.settings || {}, newSettings)
+        }
+
+        if (wasScript) {
+            await this.se.uploadAndExec()
+        }
+        this.events.emitSpec('chart', 'update-layout')
+        this.events.emitSpec('chart', 'full-update')
+    }
+
+    async deleteScriptOrOverlay(paneId, ov) {
+        let pane = this.panes()[paneId]
+        if (!pane) return
+
+        let wasScript = false
+        if (ov.prod) {
+            pane.scripts = (pane.scripts || []).filter(s => s.uuid !== ov.prod && s.id !== ov.prod)
+            pane.overlays = (pane.overlays || []).filter(o => o.prod !== ov.prod && o.uuid !== ov.uuid)
+            wasScript = true
+        } else {
+            let scriptIdx = (pane.scripts || []).findIndex(s => s.uuid === ov.uuid || (s.type === ov.type && s.name === ov.name))
+            if (scriptIdx !== -1) {
+                pane.scripts.splice(scriptIdx, 1)
+                wasScript = true
+            }
+            pane.overlays = (pane.overlays || []).filter(o => o.uuid !== ov.uuid && o.id !== ov.id)
+        }
+
+        if (paneId > 0 && pane !== this.chart) {
+            let nonToolOvs = pane.overlays.filter(o => !DEFAULT_TOOLS.some(t => t.type === o.type))
+            if (nonToolOvs.length === 0 && (!pane.scripts || pane.scripts.length === 0)) {
+                let idx = this.data.panes.indexOf(pane)
+                if (idx !== -1) {
+                    this.data.panes.splice(idx, 1)
+                }
+            }
+        }
+
+        if (wasScript) {
+            await this.se.uploadAndExec()
+        }
+        this.events.emitSpec('chart', 'full-update')
+    }
+
+    async moveScriptOrOverlay(fromPaneId, targetPaneId, ov) {
+        let fromPane = this.panes()[fromPaneId]
+        if (!fromPane) return
+
+        let script = null
+        if (ov.prod) {
+            let sIdx = (fromPane.scripts || []).findIndex(s => s.uuid === ov.prod || s.id === ov.prod)
+            if (sIdx !== -1) {
+                script = fromPane.scripts.splice(sIdx, 1)[0]
+            }
+            fromPane.overlays = (fromPane.overlays || []).filter(o => o.prod !== ov.prod)
+        } else {
+            let sIdx = (fromPane.scripts || []).findIndex(s => s.uuid === ov.uuid || s.type === ov.type)
+            if (sIdx !== -1) {
+                script = fromPane.scripts.splice(sIdx, 1)[0]
+            }
+            let oIdx = (fromPane.overlays || []).findIndex(o => o.uuid === ov.uuid || o.id === ov.id)
+            if (oIdx !== -1) {
+                ov = fromPane.overlays.splice(oIdx, 1)[0]
+            }
+        }
+
+        let toPane = null
+        if (targetPaneId === 'new') {
+            toPane = {
+                overlays: [],
+                scripts: [],
+                settings: {},
+                uuid: Utils.uuid3()
+            }
+            this.data.panes.push(toPane)
+        } else {
+            toPane = this.panes()[targetPaneId]
+        }
+
+        if (toPane) {
+            if (script) {
+                toPane.scripts = toPane.scripts || []
+                toPane.scripts.push(script)
+            } else if (ov) {
+                toPane.overlays = toPane.overlays || []
+                toPane.overlays.push(ov)
+            }
+        }
+
+        await this.se.uploadAndExec()
+        this.events.emitSpec('chart', 'full-update')
+    }
+
+    async addIndicator(type, props = {}, isOverlay = false, targetPane = 'auto') {
+        const MAIN_OVERLAY_TYPES = [
+            'SMA', 'EMA', 'HMA', 'ALMA', 'SWMA', 'VWMA', 'SAR', 'Ichimoku', 'Ribbon',
+            'BB', 'KC', 'SuperBands', 'Band', 'Spline', 'Splines', 'Cloud', 'CandlesPlus',
+            'Trades', 'ArrowTrades', 'PriceLabels'
+        ]
+
+        let targetPaneId = targetPane
+        if (targetPaneId === 'auto') {
+            if (MAIN_OVERLAY_TYPES.includes(type)) {
+                targetPaneId = this.mainPaneId ?? 0
+            } else {
+                targetPaneId = 'new'
+            }
+        }
+
+        let pane = null
+        if (targetPaneId === 'new') {
+            pane = {
+                overlays: [],
+                scripts: [],
+                settings: {},
+                uuid: Utils.uuid3()
+            }
+            this.data.panes.push(pane)
+        } else {
+            pane = this.panes()[targetPaneId] || this.panes()[0]
+        }
+
+        if (!pane) return
+
+        pane.scripts = pane.scripts || []
+        pane.overlays = pane.overlays || []
+
+        if (isOverlay) {
+            pane.overlays.push({
+                type: type,
+                name: type,
+                props: props,
+                settings: {},
+                data: [],
+                uuid: Utils.uuid3()
+            })
+        } else {
+            pane.scripts.push({
+                type: type,
+                props: props,
+                settings: {},
+                uuid: Utils.uuid3()
+            })
+        }
+
+        this.detectMain()
+        this.events.emitSpec('chart', 'full-update')
+        await this.se.uploadAndExec()
+    }
+
+    onUpdateScriptProps(event) {
+        this.updateScriptOrOverlay(event.paneId, event.ov, event.props, event.settings)
+    }
+
+    onDeleteScript(event) {
+        this.deleteScriptOrOverlay(event.paneId, event.ov)
+    }
+
+    onMoveScript(event) {
+        this.moveScriptOrOverlay(event.fromPaneId, event.targetPaneId, event.ov)
+    }
+
+    onAddIndicator(event) {
+        this.addIndicator(event.type, event.props, event.isOverlay, event.targetPane)
+    }
+
+    async movePane(paneId, dir) {
+        let targetId = paneId + dir
+        let panes = this.data.panes
+        if (paneId < 0 || paneId >= panes.length) return
+        if (targetId < 0 || targetId >= panes.length) return
+
+        let tmp = panes[paneId]
+        panes[paneId] = panes[targetId]
+        panes[targetId] = tmp
+
+        this.detectMain()
+        this.events.emitSpec('chart', 'full-update')
+        await this.se.uploadAndExec()
+    }
+
+    async deletePane(paneId) {
+        let panes = this.data.panes
+        if (paneId < 0 || paneId >= panes.length) return
+        if (panes.length <= 1) return
+
+        panes.splice(paneId, 1)
+
+        this.detectMain()
+        this.events.emitSpec('chart', 'full-update')
+        await this.se.uploadAndExec()
+    }
+
+    maximizePane(paneId) {
+        let panes = this.data.panes
+        if (paneId < 0 || paneId >= panes.length) return
+        let target = panes[paneId]
+
+        let isMax = target.settings.__maximized
+        for (var p of panes) {
+            delete p.settings.__maximized
+            delete p.settings.height
+        }
+
+        if (!isMax) {
+            target.settings.__maximized = true
+            for (var [i, p] of panes.entries()) {
+                p.settings.height = (i === paneId) ? 100 : 0.001
+            }
+        }
+
+        this.events.emitSpec('chart', 'update-layout')
+        this.events.emitSpec('chart', 'full-update')
+    }
+
+    collapsePane(paneId) {
+        let panes = this.data.panes
+        if (paneId < 0 || paneId >= panes.length) return
+        let target = panes[paneId]
+
+        let isCollapsed = target.settings.__collapsed
+        if (isCollapsed) {
+            delete target.settings.__collapsed
+            delete target.settings.height
+        } else {
+            target.settings.__collapsed = true
+            target.settings.height = 0.05
+        }
+
+        this.events.emitSpec('chart', 'update-layout')
+        this.events.emitSpec('chart', 'full-update')
+    }
+
+    onMovePane(event) {
+        this.movePane(event.paneId, event.dir)
+    }
+
+    onDeletePane(event) {
+        this.deletePane(event.paneId)
+    }
+
+    onMaximizePane(event) {
+        this.maximizePane(event.paneId)
+    }
+
+    onCollapsePane(event) {
+        this.collapsePane(event.paneId)
     }
 
 }

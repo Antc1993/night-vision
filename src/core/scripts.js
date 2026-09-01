@@ -57,7 +57,8 @@ class Scripts {
                     version: ov.tagProps.version,
                     ctx: ov.tagProps.ctx || 'Canvas',
                     make: ov.prefab,
-                    static: ov.static
+                    static: ov.static,
+                    propsSchema: ov.propsSchema || {}
                 }
             }
             for (var ind of parser.indicators) {
@@ -69,10 +70,21 @@ class Scripts {
                         init: ind.init,
                         update: ind.update,
                         post: ind.post
-                    }
+                    },
+                    propsSchema: ind.propsSchema || {}
                 }
             }
         }
+    }
+
+    getSchema(type) {
+        if (this.iScripts[type]) return this.iScripts[type].propsSchema || {}
+        if (this.prefabs[type]) return this.prefabs[type].propsSchema || {}
+        return {}
+    }
+
+    getScriptInfo(type) {
+        return this.iScripts[type] || this.prefabs[type] || null
     }
 }
 

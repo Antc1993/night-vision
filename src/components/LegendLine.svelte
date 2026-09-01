@@ -56,7 +56,7 @@ $:styleBase = `
     border: 1px solid transparent;
     margin-right: 30px;
     max-width: ${layout.width - 20}px;
-    overflow-x: hidden;
+    overflow: visible;
     white-space: nowrap;
     text-overflow: ellipsis;
     border-color: ${
@@ -128,8 +128,7 @@ function update() {
 }
 
 function onMouseMove(e) {
-    if (e.clientX < nBoundary.x + nBoundary.width + 35
-        && !hover) {
+    if (!hover) {
         setTimeout(() => {
             updateBoundaries()
             hover = true
@@ -149,6 +148,15 @@ function onClick() {
         index: [gridId, ov.id]
     })
     selected = true
+}
+
+function onDblClick(e) {
+    e.stopPropagation()
+    events.emit('open-script-settings', {
+        paneId: gridId,
+        ov: ov,
+        tab: 'inputs'
+    })
 }
 
 function onDeselect(event) {
@@ -233,6 +241,7 @@ function disableLegend() {
     on:mousemove={onMouseMove}
     on:mouseleave={onMouseLeave}
     on:click={onClick}
+    on:dblclick={onDblClick}
     on:keypress={null}
     bind:this={ref}>
     {#if ov.main && props.showLogo}

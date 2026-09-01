@@ -204,7 +204,34 @@ function extractStaticBlocks(script) {
 }
 
 
+// Extract prop schemas from script source
+function extractPropsSchema(src) {
+    let schema = {}
+    if (!src) return schema
+    let code = decomment(src)
+    let regex = /prop\s*\(\s*['"]([a-zA-Z0-9_]+)['"]\s*,\s*(\{[\s\S]*?\})\s*\)/g
+    let match
+    while ((match = regex.exec(code)) !== null) {
+        let name = match[1]
+        let descrStr = match[2]
+        try {
+            let autoPrec = () => 2
+            let $core = { colors: { text: '#d1d4dc', back: '#1e222d', scale: '#2a2e39' } }
+            let descr = new Function('autoPrec', '$core', `return (${descrStr})`)(autoPrec, $core)
+            schema[name] = descr
+        } catch (e) {
+            let typeMatch = descrStr.match(/type\s*:\s*['"]([^'"]+)['"]/i)
+            let defMatch = descrStr.match(/def\s*:\s*([^,\}\n]+)/)
+            let type = typeMatch ? typeMatch[1].toLowerCase() : 'string'
+            let def = defMatch ? defMatch[1].trim().replace(/^['"]|['"]$/g, '') : undefined
+            schema[name] = { type, def }
+        }
+    }
+    return schema
+}
+
 export default {
     maskStrings, unmaskStrings, findStrings, maskRegex,
-    decomment, findClosingBracket, extractStaticBlocks
+    decomment, findClosingBracket, extractStaticBlocks,
+    extractPropsSchema
 }

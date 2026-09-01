@@ -95,9 +95,12 @@ class DataScanner {
     calcPanesHash() {
         let hash = ''
         for (var pane of this.hub.data.panes || []) {
-            hash += pane.uuid
+            hash += (pane.uuid || pane.id || '') + ':'
             for (var ov of pane.overlays || []) {
-                hash += ov.uuid
+                hash += (ov.uuid || ov.name || ov.type || ov.id || '') + ','
+            }
+            for (var s of pane.scripts || []) {
+                hash += (s.uuid || s.type || s.id || '') + ';'
             }
         }
         return hash

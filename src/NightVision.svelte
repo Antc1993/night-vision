@@ -60,6 +60,7 @@
         scripts,
         config: configMerge,
         timezone,
+        indexBased,
     };
     $: style = `
     width: ${width}px;

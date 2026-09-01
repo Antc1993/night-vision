@@ -17,6 +17,8 @@
     import NoDataStub from "./NoDataStub.svelte";
     import DrawingToolbar from "./DrawingToolbar.svelte";
     import FloatingToolbar from "./FloatingToolbar.svelte";
+    import ScriptSettingsModal from "./ScriptSettingsModal.svelte";
+    import IndicatorCatalogModal from "./IndicatorCatalogModal.svelte";
     export let props = {};
 
     // Getters
@@ -171,7 +173,6 @@
         hub.calcSubset(range);
         hub.init(hub.data);
         hub.detectMain();
-        // TODO: exec only if scripts changed
         hub.loadScripts();
         meta.init(props);
         meta.restore();
@@ -206,6 +207,8 @@
                 {/each}
                 <Botbar props={chartProps} {layout} />
                 <FloatingToolbar props={chartProps} {layout} />
+                <ScriptSettingsModal props={chartProps} {layout} />
+                <IndicatorCatalogModal props={chartProps} {layout} />
             </div>
         {:else}
             <NoDataStub {props} />

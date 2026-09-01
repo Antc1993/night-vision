@@ -29,6 +29,7 @@ export default class ParserOV {
         this.tagProps = this.parseTagProps(tagProps)
         this.src = src
         this.flags = ''
+        this.propsSchema = tools.extractPropsSchema(src)
 
         this.parseBody()
 

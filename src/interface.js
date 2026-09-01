@@ -237,6 +237,16 @@ class NightVision {
         if (d > 0) this.goto(this.range[1] + int)
     }
 
+    // Open indicators selection catalog modal
+    openIndicatorsModal() {
+        this.events.emit('open-indicators-modal')
+    }
+
+    // Add indicator or overlay by name
+    addIndicator(name, props = {}, isOverlay = false, paneId = 'auto') {
+        return this.hub.addIndicator(name, props, isOverlay, paneId)
+    }
+
     // Should call this to clean-up memory / events
     destroy() {
         this.comp.$destroy()

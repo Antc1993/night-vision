@@ -10,6 +10,7 @@ import Legend from './Legend.svelte'
 import Events from '../core/events.js'
 import Utils from '../stuff/utils.js'
 import DrawingToolbar from './DrawingToolbar.svelte';
+import PaneControls from './PaneControls.svelte';
 
 export let id // Pane id
 export let props // General props
@@ -69,6 +70,7 @@ function update($layout) {
   
     <Grid {id} {props} {layout} {main} bind:this={grid}/>
     <Legend {id} {props} {layout} {main}/>
+    <PaneControls {id} {props} {layout} {main}/>
     {#if leftSb.length}
         <Sidebar {id} {props} {layout} bind:this={lsb}
             side='left' scales={leftSb}/>

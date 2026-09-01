@@ -77,4 +77,10 @@ export class NightVision {
 
   /** Reset the chart with the range */
   fullReset(): void;
+
+  /** Open the indicators catalog modal */
+  openIndicatorsModal(): void;
+
+  /** Add an indicator or overlay by name */
+  addIndicator(name: string, props?: Record<string, any>, isOverlay?: boolean, paneId?: number | string): Promise<void>;
 }

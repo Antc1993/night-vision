@@ -13,6 +13,7 @@ export default class ParserIND {
 
         this.tagProps = this.parseTagProps(tagProps)
         this.src = src
+        this.propsSchema = tools.extractPropsSchema(src)
 
         this.parseBody()
 

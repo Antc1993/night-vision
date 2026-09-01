@@ -98,7 +98,7 @@ class SeClient {
                 pane.overlays.push(...p.overlays)
             }
         }
-        this.chart.update()
+        this.chart.update('grid', { updateHash: true })
     }
 
     // Opdate data of overlays produced by scripts
