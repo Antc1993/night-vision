@@ -404,6 +404,7 @@ class ScriptEngine {
     }
 
     format_data() {
+        if (!Array.isArray(self.paneStruct)) return []
         return self.paneStruct.map(x => ({
             id: x.id,
             uuid: x.uuid,
@@ -427,6 +428,7 @@ class ScriptEngine {
 
     format_update() {
         let map = {}
+        if (!Array.isArray(self.paneStruct)) return map
         for (var pane of self.paneStruct) {
             for (var ov of pane.overlays || []) {
                 map[ov.uuid] = ov.data[ov.data.length - 1]

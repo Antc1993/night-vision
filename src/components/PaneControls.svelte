@@ -1,4 +1,5 @@
 <script>
+    import { onDestroy } from "svelte";
     import Events from "../core/events.js";
     import DataHub from "../core/dataHub.js";
 
@@ -9,9 +10,22 @@
 
     let events = Events.instance(props.id);
     let hub = DataHub.instance(props.id);
+    let updateRR = 0;
 
-    $: totalPanes = (hub.panes() || []).length;
-    $: pane = hub.panes()[id] || {};
+    events.on(`pane-ctrls-${id}:update-pane`, () => {
+        updateRR++;
+    });
+
+    events.on(`pane-ctrls-${id}:update-layout`, () => {
+        updateRR++;
+    });
+
+    onDestroy(() => {
+        events.off(`pane-ctrls-${id}`);
+    });
+
+    $: totalPanes = (updateRR, layout, hub.panes() || []).length;
+    $: pane = (updateRR, layout, hub.panes()[id] || {});
     $: isMaximized = !!pane.settings?.__maximized;
     $: isCollapsed = !!pane.settings?.__collapsed;
     $: topStyle = `top: ${(layout?.offset || 0) + 6}px; right: ${(layout?.sbMax?.[1] || 50) + 8}px; position: absolute;`;

@@ -107,10 +107,11 @@ class NightVision {
 
     // The data (auto-updated on reset)
     get data() {
-        return this._data
+        return this.hub ? this.hub.data : this._data
     }
     set data(val) {
         this._data = val
+        if (this.hub) this.hub.init(val)
         this.update('full')
     }
 
@@ -189,7 +190,8 @@ class NightVision {
                 ev.emitSpec('chart', 'update-layout', opt)
             break
             case 'full':
-                this.hub.init(this._data)
+                this.hub.init(this.hub.data || this._data)
+                this._data = this.hub.data
                 ev.emitSpec('chart', 'full-update', opt)
             break
             case 'grid':

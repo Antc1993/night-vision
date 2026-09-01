@@ -11,7 +11,7 @@ import { DatasetWW} from './dataset.js'
 self.scriptLib = {}
 
 // Pane structure
-self.paneStruct = {}
+self.paneStruct = []
 
 // DC => WW
 self.onmessage = async e => {

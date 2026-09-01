@@ -412,6 +412,7 @@ class DataHub {
             })
         }
 
+        await this.loadScripts()
         this.detectMain()
         this.events.emitSpec('chart', 'full-update')
         await this.se.uploadAndExec()

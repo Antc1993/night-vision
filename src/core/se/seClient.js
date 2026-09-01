@@ -24,9 +24,10 @@ class SeClient {
         switch (e.data.type) {
             case 'overlay-data':
                 this.onOverlayData(e.data.data)
+                break
             case 'engine-state':
                 this.onEngineState(e.data.data)
-            break
+                break
         }
     }
 
@@ -92,12 +93,14 @@ class SeClient {
     replaceOverlays(data) {
         for (var pane of this.hub.panes()) {
             // Filter old produced overlays
-            pane.overlays = pane.overlays.filter(x => !x.prod)
+            pane.overlays = (pane.overlays || []).filter(x => !x.prod)
             let p = data.find(x => x.uuid === pane.uuid)
             if (p && p.overlays) {
                 pane.overlays.push(...p.overlays)
             }
         }
+        let range = this.chart.range || (this.hub.chart ? this.hub.chart.range : []) || []
+        this.hub.calcSubset(range)
         this.chart.update('grid', { updateHash: true })
     }
 
@@ -115,13 +118,12 @@ class SeClient {
                         dst.name = src.name
                         dst.data = src.data
                         dst.uuid = src.uuid
-                        // TODO: what if user changed a prop manually?
-                        //dst.props = src.props
-                        //dst.settings = src.settings
                     }
                 }
             }
         }
+        let range = this.chart.range || (this.hub.chart ? this.hub.chart.range : []) || []
+        this.hub.calcSubset(range)
         // Updating only data, preventing full update
         this.chart.update('data', {updateHash: true})
     }

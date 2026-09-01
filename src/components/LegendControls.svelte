@@ -14,14 +14,24 @@ export let height = 20 // Legend-line height
 let events = Events.instance(props.id)
 let hub = DataHub.instance(props.id)
 let menuOpen = false
+let ctrlsRR = 0
 
-$: totalPanes = (hub.panes() || []).length
+events.on(`legend-ctrls-${gridId}:update-pane`, () => {
+    ctrlsRR++
+})
+
+events.on(`legend-ctrls-${gridId}:update-layout`, () => {
+    ctrlsRR++
+})
+
+$: totalPanes = (ctrlsRR, props, hub.panes() || []).length
 $: heightStyle = height ? `height: ${Math.max(18, height)}px;` : ''
 $: display = ov.settings.display !== false
 $:state = display ? 'open' : 'closed'
 
 export function update() {
     display = ov.settings.display !== false
+    ctrlsRR++
 }
 
 function onDisplayClick(e) {
@@ -122,6 +132,7 @@ onMount(() => {
 
 onDestroy(() => {
     window.removeEventListener('click', onWindowClick)
+    events.off(`legend-ctrls-${gridId}`)
 })
 
 </script>
