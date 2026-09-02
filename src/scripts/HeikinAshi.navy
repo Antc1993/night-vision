@@ -1,0 +1,212 @@
+
+// NavyJS ~ 0.2-lite
+
+// <ds>Heikin-Ashi Candlestick Chart (Native fast batched rendering)</ds>
+// Format: [<timestamp>, <open>, <high>, <low>, <close>, <?volume>]
+
+[OVERLAY name=HeikinAshi, ctx=Canvas, version=1.1.0]
+
+// Define the props
+prop('colorBodyUp', { type: 'color', def: $core.colors.candleUp })
+prop('colorBodyDw', { type: 'color', def: $core.colors.candleDw })
+prop('colorWickUp', { type: 'color', def: $core.colors.wickUp })
+prop('colorWickDw', { type: 'color', def: $core.colors.wickDw })
+prop('colorVolUp', { type: 'color', def: $core.colors.volUp })
+prop('colorVolDw', { type: 'color', def: $core.colors.volDw })
+prop('showVolume', { type: 'boolean', def: true })
+prop('currencySymbol', { type: 'string', def: '$' })
+prop('showAvgVolume', { type: 'boolean', def: true })
+prop('avgVolumeSMA', { type: 'number', def: 20 })
+prop('colorAvgVol', { type: 'color', def: '#1cccb777' })
+prop('scaleSymbol', { type: 'string|boolean', def: false })
+prop('priceLine', { type: 'boolean', def: true })
+prop('showValueTracker', { type: 'boolean', def: true })
+
+// Cache for Heikin Ashi values
+let haCache = { dataRef: null, len: 0, result: [] }
+
+function computeHA(data) {
+    if (!data || !data.length) return []
+    if (haCache.dataRef === data && haCache.len === data.length) {
+        return haCache.result
+    }
+
+    const n = data.length
+    const result = new Array(n)
+    let prevOpen = (data[0][1] + data[0][4]) * 0.5
+    let prevClose = (data[0][1] + data[0][2] + data[0][3] + data[0][4]) * 0.25
+
+    result[0] = [data[0][0], prevOpen, data[0][2], data[0][3], prevClose, data[0][5]]
+
+    for (let i = 1; i < n; i++) {
+        const p = data[i]
+        const o = p[1], h = p[2], l = p[3], c = p[4]
+        const haClose = (o + h + l + c) * 0.25
+        const haOpen = (prevOpen + prevClose) * 0.5
+        const haHigh = Math.max(h, haOpen, haClose)
+        const haLow = Math.min(l, haOpen, haClose)
+
+        result[i] = [p[0], haOpen, haHigh, haLow, haClose, p[5]]
+        prevOpen = haOpen
+        prevClose = haClose
+    }
+
+    haCache = { dataRef: data, len: n, result: result }
+    return result
+}
+
+// Draw call with batched 60fps rendering
+draw(ctx) {
+    const rawData = $core.data
+    const view = $core.view
+    const layout = $core.layout
+    if (!rawData || !rawData.length || !view) return
+
+    const data = computeHA(rawData)
+    const config = $core.props.config
+    const { A, B, pxStep, ti2x } = layout
+    const ls = layout.scaleSpecs.log
+    const w = Math.max(pxStep * config.CANDLEW, 1)
+
+    let upBodies = []
+    let dwBodies = []
+    let upWicks = []
+    let dwWicks = []
+
+    for (let i = view.i1, n = view.i2; i <= n; i++) {
+        let p = data[i]
+        if (!p) continue
+        let green = p[4] >= p[1]
+        let mid = ti2x(p[0], i) + 1
+
+        let candle = ls ? {
+            x: mid,
+            w: w,
+            o: Math.floor(Math.log(p[1]) * A + B),
+            h: Math.floor(Math.log(p[2]) * A + B),
+            l: Math.floor(Math.log(p[3]) * A + B),
+            c: Math.floor(Math.log(p[4]) * A + B),
+            green: green,
+            src: p
+        } : {
+            x: mid,
+            w: w,
+            o: Math.floor(p[1] * A + B),
+            h: Math.floor(p[2] * A + B),
+            l: Math.floor(p[3] * A + B),
+            c: Math.floor(p[4] * A + B),
+            green: green,
+            src: p
+        }
+
+        if (green) {
+            upBodies.push(candle)
+            upWicks.push(candle)
+        } else {
+            dwBodies.push(candle)
+            dwWicks.push(candle)
+        }
+    }
+
+    // Batched render of wicks and bodies
+    drawCvPart(ctx, $lib.candleWick, dwWicks, 1, 'colorWickDw')
+    drawCvPart(ctx, $lib.candleWick, upWicks, 1, 'colorWickUp')
+    drawCvPart(ctx, $lib.candleBody, dwBodies, w, 'colorBodyDw')
+    drawCvPart(ctx, $lib.candleBody, upBodies, w, 'colorBodyUp')
+
+    // Volume bars
+    if ($props.showVolume) {
+        let cnv = $lib.layoutCnv($core, false, true)
+        drawCvPart(ctx, $lib.volumeBar, cnv.dwVolbars, w, 'colorVolDw')
+        drawCvPart(ctx, $lib.volumeBar, cnv.upVolbars, w, 'colorVolUp')
+        if ($props.showAvgVolume) {
+            $lib.avgVolume(ctx, $core, $props, cnv)
+        }
+    }
+}
+
+// Draw batched candle sub-elements
+drawCvPart(ctx, f, arr, w, color) {
+    let layout = $core.layout
+    ctx.lineWidth = w
+    ctx.strokeStyle = $props[color]
+    ctx.beginPath()
+    for (var i = 0, n = arr.length; i < n; i++) {
+        f(ctx, arr[i], layout)
+    }
+    ctx.stroke()
+}
+
+// Define y-range (calculating max High and min Low over Heikin-Ashi data without external dependencies)
+static yRange(data) {
+    if (!data || !data.length) return null
+    let len = data.length
+    var high = -Infinity, low = Infinity
+    let prevOpen = (data[0][1] + data[0][4]) * 0.5
+    let prevClose = (data[0][1] + data[0][2] + data[0][3] + data[0][4]) * 0.25
+
+    high = Math.max(data[0][2], prevOpen, prevClose)
+    low = Math.min(data[0][3], prevOpen, prevClose)
+
+    for (let i = 1; i < len; i++) {
+        let p = data[i]
+        let haClose = (p[1] + p[2] + p[3] + p[4]) * 0.25
+        let haOpen = (prevOpen + prevClose) * 0.5
+        let haHigh = Math.max(p[2], haOpen, haClose)
+        let haLow = Math.min(p[3], haOpen, haClose)
+
+        if (haHigh > high) high = haHigh
+        if (haLow < low) low = haLow
+
+        prevOpen = haOpen
+        prevClose = haClose
+    }
+    return [high, low]
+}
+
+// Precision detection based on Open & Close
+static preSampler(x) => x ? [x[1], x[4]] : []
+
+// Map data item to OHLC
+ohlc(x) => [x[1], x[2], x[3], x[4]]
+
+// Price label + Scale symbol + price line tracker
+valueTracker(x) {
+    let rawData = $core.data
+    let lastP = rawData && rawData.length ? computeHA(rawData).slice(-1)[0] : x
+    let isUp = lastP ? lastP[4] >= lastP[1] : true
+    return {
+        show: $props.showValueTracker,
+        symbol: $props.scaleSymbol,
+        line: $props.priceLine,
+        color: isUp ? $props.colorBodyUp : $props.colorBodyDw,
+        value: lastP ? lastP[4] : x[4]
+    }
+}
+
+// Heikin-Ashi legend formatter
+legendHtml(x, prec, f) {
+    let color1 = $core.colors.text
+    let v = $core.cursor.getValue($core.paneId, $core.id)
+    if (!v) return ''
+    let sym = $props.currencySymbol || '$'
+    let fc = $lib.formatCash
+    let green = v[4] >= v[1]
+    let color2 = green ? $props.colorBodyUp : $props.colorBodyDw
+    return `
+    <span style="color: ${color2}">
+        <span style="margin-left: 3px;"></span>
+        <span style="color: ${color1}">HA-O</span>
+        <span class="nvjs-ll-value">${f(v[1])}</span>
+        <span style="color: ${color1}">HA-H</span>
+        <span class="nvjs-ll-value">${f(v[2])}</span>
+        <span style="color: ${color1}">HA-L</span>
+        <span class="nvjs-ll-value">${f(v[3])}</span>
+        <span style="color: ${color1}">HA-C</span>
+        <span class="nvjs-ll-value">${f(v[4])}</span>
+    `
+    + ($props.showVolume && v[5] !== undefined ? `
+        <span style="color: ${color1}">V</span>
+        <span class="nvjs-ll-value">${sym+fc(v[5])}</span>` : ``)
+    + `</span>`
+}

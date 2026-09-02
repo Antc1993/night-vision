@@ -1,25 +1,28 @@
 
 // NavyJS ~ 0.2-lite
 
-// <ds>Colored Candles (Warning: coloring makes it slower)</ds>
-// Format: [<timestamp>, <open>, <high>, <low>, <close>, <?volume>, <?color>]
-// <?color> :: Candle body color
+// <ds>Enhanced Professional Candlesticks with borders, high/low markers & custom coloring</ds>
+// Format: [<timestamp>, <open>, <high>, <low>, <close>, <?volume>, <?customColor>]
 
-[OVERLAY name=CandlesPlus, ctx=Canvas, version=1.0.0]
+[OVERLAY name=CandlesPlus, ctx=Canvas, version=1.2.0]
 
-// Define the props
-prop('colorBodyUp', { type: 'color', def: $core.colors.candleUp })
-prop('colorBodyDw', { type: 'color', def: $core.colors.candleDw })
-prop('colorWickUp', { type: 'color', def: $core.colors.wickUp })
-prop('colorWickDw', { type: 'color', def: $core.colors.wickDw })
-prop('colorVolUp', { type: 'color', def: $core.colors.volUp })
-prop('colorVolDw', { type: 'color', def: $core.colors.volDw })
+// Props
+prop('colorBodyUp', { type: 'color', def: $core.colors.candleUp || '#26a69a' })
+prop('colorBodyDw', { type: 'color', def: $core.colors.candleDw || '#ef5350' })
+prop('colorWickUp', { type: 'color', def: $core.colors.wickUp || '#26a69a' })
+prop('colorWickDw', { type: 'color', def: $core.colors.wickDw || '#ef5350' })
+prop('colorBorderUp', { type: 'color', def: '#1cb09f' })
+prop('colorBorderDw', { type: 'color', def: '#f7525f' })
+prop('showBorders', { type: 'boolean', def: true })
+prop('showHighLow', { type: 'boolean', def: true })
+prop('colorVolUp', { type: 'color', def: $core.colors.volUp || '#26a69a44' })
+prop('colorVolDw', { type: 'color', def: $core.colors.volDw || '#ef535044' })
 prop('showVolume', { type: 'boolean', def: true })
 prop('showWicks', { type: 'boolean', def: true })
 prop('currencySymbol', { type: 'string', def: '$' })
 prop('showAvgVolume', { type: 'boolean', def: true })
 prop('avgVolumeSMA', { type: 'number', def: 20 })
-prop('colorAvgVol', { type: 'color', def: '#1cccb777'})
+prop('colorAvgVol', { type: 'color', def: '#1cccb788' })
 prop('scaleSymbol', { type: 'string|boolean', def: false })
 prop('priceLine', { type: 'boolean', def: true })
 prop('showValueTracker', { type: 'boolean', def: true })
@@ -27,66 +30,206 @@ prop('coloringBodies', { type: 'boolean', def: true })
 prop('coloringWicks', { type: 'boolean', def: false })
 prop('coloringVolume', { type: 'boolean', def: false })
 
-// Draw call
 draw(ctx) {
+    const data = $core.data
+    const view = $core.view
+    const layout = $core.layout
 
-    let cnv = $lib.layoutCnv($core, true, $props.showVolume)
-    let bodies = cnv.upBodies.length ? cnv.upBodies : cnv.dwBodies
-    if (!bodies.length) return
-    let w = Math.max(bodies[0].w, 1)
-    let sw = $props.showWicks
-    let cb = $props.coloringBodies
-    let cw = $props.coloringWicks
-    let cv = $props.coloringVolume
+    if (!data || !data.length || !view) return
 
-    if (sw) {
-        drawCvPart(ctx, $lib.candleWick, cnv.dwWicks, 1, 'colorWickDw', cw)
-        drawCvPart(ctx, $lib.candleWick, cnv.upWicks, 1, 'colorWickUp', cw)
+    const config = $core.props.config
+    const { A, B, pxStep, ti2x } = layout
+    const ls = layout.scaleSpecs.log
+    const w = Math.max(Math.floor(pxStep * config.CANDLEW), 1)
+    const halfW = Math.floor(w / 2)
+
+    let upWicks = []
+    let dwWicks = []
+    let upBodies = []
+    let dwBodies = []
+    let customCandles = [] // Candles with custom p[6] color
+
+    let maxHighVal = -Infinity, maxHighIdx = -1, maxHighX = 0, maxHighY = 0
+    let minLowVal = Infinity, minLowIdx = -1, minLowX = 0, minLowY = 0
+
+    for (let i = view.i1, n = view.i2; i <= n; i++) {
+        let p = data[i]
+        if (!p) continue
+
+        let green = p[4] >= p[1]
+        let mid = ti2x(p[0], i) + 1
+
+        let yO = ls ? Math.floor(Math.log(p[1]) * A + B) : Math.floor(p[1] * A + B)
+        let yH = ls ? Math.floor(Math.log(p[2]) * A + B) : Math.floor(p[2] * A + B)
+        let yL = ls ? Math.floor(Math.log(p[3]) * A + B) : Math.floor(p[3] * A + B)
+        let yC = ls ? Math.floor(Math.log(p[4]) * A + B) : Math.floor(p[4] * A + B)
+
+        let candle = {
+            x: mid,
+            w: w,
+            o: yO,
+            h: yH,
+            l: yL,
+            c: yC,
+            green: green,
+            customColor: p[6],
+            src: p
+        }
+
+        // Track session High & Low
+        if (p[2] > maxHighVal) {
+            maxHighVal = p[2]
+            maxHighIdx = i
+            maxHighX = mid - 1
+            maxHighY = yH
+        }
+        if (p[3] < minLowVal) {
+            minLowVal = p[3]
+            minLowIdx = i
+            minLowX = mid - 1
+            minLowY = yL
+        }
+
+        if (p[6] && $props.coloringBodies) {
+            customCandles.push(candle)
+        } else if (green) {
+            upBodies.push(candle)
+        } else {
+            dwBodies.push(candle)
+        }
+
+        if (green) upWicks.push(candle)
+        else dwWicks.push(candle)
     }
-    drawCvPart(ctx, $lib.candleBody, cnv.dwBodies, w, 'colorBodyDw', cb)
-    drawCvPart(ctx, $lib.candleBody, cnv.upBodies, w, 'colorBodyUp', cb)
-    drawCvPart(ctx, $lib.volumeBar, cnv.dwVolbars, w, 'colorVolDw', cv)
-    drawCvPart(ctx, $lib.volumeBar, cnv.upVolbars, w, 'colorVolUp', cv)
 
-    if ($props.showVolume && $props.showAvgVolume) {
-        $lib.avgVolume(ctx, $core, $props, cnv)
+    // 1. Draw Wicks
+    if ($props.showWicks) {
+        drawCvPart(ctx, $lib.candleWick, dwWicks, 1, 'colorWickDw')
+        drawCvPart(ctx, $lib.candleWick, upWicks, 1, 'colorWickUp')
     }
 
+    // 2. Draw Standard Bodies
+    drawCvPart(ctx, $lib.candleBody, dwBodies, w, 'colorBodyDw')
+    drawCvPart(ctx, $lib.candleBody, upBodies, w, 'colorBodyUp')
+
+    // 3. Draw Custom Colored Candles (if any)
+    if (customCandles.length > 0) {
+        for (let i = 0; i < customCandles.length; i++) {
+            let c = customCandles[i]
+            ctx.strokeStyle = c.customColor
+            ctx.lineWidth = w
+            ctx.beginPath()
+            $lib.candleBody(ctx, c, layout)
+            ctx.stroke()
+        }
+    }
+
+    // 4. Draw Styled Candle Borders (Enhanced Pro Look)
+    if ($props.showBorders && w >= 3) {
+        ctx.lineWidth = 1
+        // Up borders
+        if (upBodies.length > 0) {
+            ctx.strokeStyle = $props.colorBorderUp
+            ctx.beginPath()
+            for (let i = 0, n = upBodies.length; i < n; i++) {
+                let c = upBodies[i]
+                let top = Math.min(c.o, c.c)
+                let h = Math.max(Math.abs(c.o - c.c), 1)
+                ctx.rect(c.x - 1 - halfW + 0.5, top + 0.5, w - 1, h)
+            }
+            ctx.stroke()
+        }
+        // Down borders
+        if (dwBodies.length > 0) {
+            ctx.strokeStyle = $props.colorBorderDw
+            ctx.beginPath()
+            for (let i = 0, n = dwBodies.length; i < n; i++) {
+                let c = dwBodies[i]
+                let top = Math.min(c.o, c.c)
+                let h = Math.max(Math.abs(c.o - c.c), 1)
+                ctx.rect(c.x - 1 - halfW + 0.5, top + 0.5, w - 1, h)
+            }
+            ctx.stroke()
+        }
+    }
+
+    // 5. Draw Session High/Low Tags
+    if ($props.showHighLow && maxHighIdx >= 0 && minLowIdx >= 0) {
+        drawHighLowMarker(ctx, maxHighX, maxHighY, maxHighVal, true, layout)
+        drawHighLowMarker(ctx, minLowX, minLowY, minLowVal, false, layout)
+    }
+
+    // 6. Volume bars
+    if ($props.showVolume) {
+        let cnv = $lib.layoutCnv($core, false, true)
+        drawCvPart(ctx, $lib.volumeBar, cnv.dwVolbars, w, 'colorVolDw')
+        drawCvPart(ctx, $lib.volumeBar, cnv.upVolbars, w, 'colorVolUp')
+        if ($props.showAvgVolume) {
+            $lib.avgVolume(ctx, $core, $props, cnv)
+        }
+    }
 }
 
-// Draw candle part
-drawCvPart(ctx, f, arr, w, color, coloring = false) {
+// Draw elegant High / Low session badges
+drawHighLowMarker(ctx, x, y, val, isHigh, layout) {
+    const text = (isHigh ? 'H: ' : 'L: ') + val.toFixed(2)
+    ctx.font = '10px -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, sans-serif'
+    const textW = ctx.measureText(text).width
+    const padX = 5, padY = 2
+    const boxW = textW + padX * 2
+    const boxH = 15
+
+    let boxX = x - boxW / 2
+    let boxY = isHigh ? (y - boxH - 6) : (y + 6)
+
+    // Clamp inside canvas
+    boxX = Math.max(4, Math.min(boxX, layout.width - boxW - 4))
+
+    // Badge Background
+    ctx.fillStyle = isHigh ? 'rgba(38, 166, 154, 0.2)' : 'rgba(239, 83, 80, 0.2)'
+    ctx.strokeStyle = isHigh ? $props.colorBorderUp : $props.colorBorderDw
+    ctx.lineWidth = 1
+
+    ctx.beginPath()
+    ctx.roundRect ? ctx.roundRect(boxX, boxY, boxW, boxH, 3) : ctx.rect(boxX, boxY, boxW, boxH)
+    ctx.fill()
+    ctx.stroke()
+
+    // Badge Text
+    ctx.fillStyle = isHigh ? $props.colorBorderUp : $props.colorBorderDw
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(text, boxX + boxW / 2, boxY + boxH / 2)
+
+    // Pointer line
+    ctx.beginPath()
+    ctx.strokeStyle = isHigh ? $props.colorBorderUp : $props.colorBorderDw
+    ctx.moveTo(x, y)
+    ctx.lineTo(x, isHigh ? boxY + boxH : boxY)
+    ctx.stroke()
+
+    // Reset alignment
+    ctx.textAlign = 'start'
+    ctx.textBaseline = 'alphabetic'
+}
+
+// Draw batched candle sub-elements
+drawCvPart(ctx, f, arr, w, color) {
     let layout = $core.layout
-    let prevColor = null
     ctx.lineWidth = w
     ctx.strokeStyle = $props[color]
     ctx.beginPath()
     for (var i = 0, n = arr.length; i < n; i++) {
-        if (coloring) {
-            var c = arr[i].src[6]
-            if (c) {
-                if (c !== prevColor) {
-                    ctx.stroke()
-                    ctx.beginPath()
-                }
-                ctx.strokeStyle = c
-            } else if (prevColor !== $props[color]) {
-                ctx.stroke()
-                ctx.beginPath()
-                ctx.strokeStyle = $props[color]
-                prevColor = $props[color]
-            }
-            prevColor = c
-        }
         f(ctx, arr[i], layout)
     }
     ctx.stroke()
 }
 
-// Define y-range (by finding max High, min Low)
+// Define y-range
 static yRange(data) {
+    if (!data || !data.length) return null
     let len = data.length
-    var h, l, high = -Infinity, low = Infinity
+    var high = -Infinity, low = Infinity
     for(var i = 0; i < len; i++) {
         let point = data[i]
         if (point[2] > high) high = point[2]
@@ -95,46 +238,44 @@ static yRange(data) {
     return [high, low]
 }
 
-// Use [Open, Close] for precision detection
-static preSampler(x) => [x[1], x[4]]
+// Precision detection
+static preSampler(x) => x ? [x[1], x[4]] : []
 
-// Map data item to OHLC (for candle magnets etc.)
+// Map data item to OHLC
 ohlc(x) => [x[1], x[2], x[3], x[4]]
 
-// Price label + Scale symbol + price line
+// Price label + Scale symbol + price line tracker
 valueTracker(x) => {
     show: $props.showValueTracker,
     symbol: $props.scaleSymbol,
     line: $props.priceLine,
     color: $lib.candleColor($props, $core.data[$core.data.length - 1]),
-    value: x[4] // close
+    value: x[4]
 }
 
-// Define the OHLCV legend
+// Legend
 legendHtml(x, prec, f) {
     let color1 = $core.colors.text
     let v = $core.cursor.getValue($core.paneId, $core.id)
-    let sym = $props.currencySymbol
-    let color2 = v[4] >= v[1] ?
-        $props.colorBodyUp : $props.colorBodyDw
-    if ($props.coloringBodies && x[6]) {
-        color2 = x[6]
-    }
+    if (!v) return ''
+    let sym = $props.currencySymbol || '$'
+    let color2 = v[4] >= v[1] ? $props.colorBodyUp : $props.colorBodyDw
+    if ($props.coloringBodies && x[6]) color2 = x[6]
     let fc = $lib.formatCash
     return `
     <span style="color: ${color2}">
         <span style="margin-left: 3px;"></span>
         <span style="color: ${color1}">O</span>
-        <span class="nvjs-ll-value">${f(x[1])}</span>
+        <span class="nvjs-ll-value">${f(v[1])}</span>
         <span style="color: ${color1}">H</span>
-        <span class="nvjs-ll-value">${f(x[2])}</span>
+        <span class="nvjs-ll-value">${f(v[2])}</span>
         <span style="color: ${color1}">L</span>
-        <span class="nvjs-ll-value">${f(x[3])}</span>
+        <span class="nvjs-ll-value">${f(v[3])}</span>
         <span style="color: ${color1}">C</span>
-        <span class="nvjs-ll-value">${f(x[4])}</span>
+        <span class="nvjs-ll-value">${f(v[4])}</span>
     `
-    + ($props.showVolume ? `
+    + ($props.showVolume && v[5] !== undefined ? `
         <span style="color: ${color1}">V</span>
-        <span class="nvjs-ll-value">${sym+fc(x[5])}</span>` : ``)
+        <span class="nvjs-ll-value">${sym+fc(v[5])}</span>` : ``)
     + `</span>`
-    }
+}

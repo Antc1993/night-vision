@@ -8,11 +8,16 @@ prop('length', { type: 'integer', def: 14 })
 prop('color', { type: 'color', def: '#3399ff' })
 prop('prec', { type: 'integer', def: 2 })
 prop('zIndex', { type: 'integer', def: 0 })
+prop('upperBand', { type: 'integer', def: 70 })
+prop('lowerBand', { type: 'integer', def: 30 })
+ 
 
 this.specs = {
     name: 'RSI ' + $props.length,
     props: {
-        color: $props.color
+        color: $props.color,
+        upperBand: $props.upperBand,
+        lowerBand: $props.lowerBand
     },
     settings: {
         precision: $props.prec,

@@ -63,16 +63,23 @@
         // Fetch schema
         propsSchema = scriptsHub.getSchema(scriptType) || {};
 
-        // Merge existing props
-        editingProps = JSON.parse(JSON.stringify(Object.assign({}, script?.props || {}, ov.props || {})));
-        editingSettings = JSON.parse(JSON.stringify(Object.assign({}, script?.settings || {}, ov.settings || {})));
+        // Prepare base props
+        let baseProps = {};
+        if (script) {
+            baseProps = Object.assign({}, script.props || {});
+        } else {
+            baseProps = Object.assign({}, ov.props || {});
+        }
 
-        // Ensure all schema props exist in editingProps
+        // Ensure all schema props exist in baseProps with defaults
         for (let key in propsSchema) {
-            if (!(key in editingProps)) {
-                editingProps[key] = propsSchema[key].def;
+            if (!(key in baseProps) || baseProps[key] === undefined) {
+                baseProps[key] = propsSchema[key].def;
             }
         }
+
+        editingProps = JSON.parse(JSON.stringify(baseProps));
+        editingSettings = JSON.parse(JSON.stringify(Object.assign({}, script?.settings || {}, ov.settings || {})));
 
         // Save original snapshot for revert
         originalSnapshot = {
@@ -176,6 +183,54 @@
         if (typeof val === "string" && (val.startsWith("#") || val.startsWith("rgb"))) return "color";
         return "string";
     }
+
+    function toColorPickerHex(str) {
+        if (!str || typeof str !== "string") return "#2962ff";
+        str = str.trim();
+        if (str.startsWith("#")) {
+            if (str.length === 9) { // #rrggbbaa -> #rrggbb
+                return str.slice(0, 7).toLowerCase();
+            }
+            if (str.length === 7) { // #rrggbb
+                return str.toLowerCase();
+            }
+            if (str.length === 4 || str.length === 5) { // #rgb or #rgba
+                let r = str[1], g = str[2], b = str[3];
+                return (`#${r}${r}${g}${g}${b}${b}`).toLowerCase();
+            }
+        }
+        if (str.startsWith("rgb")) {
+            let m = str.match(/\d+/g);
+            if (m && m.length >= 3) {
+                let r = Math.min(255, parseInt(m[0], 10)).toString(16).padStart(2, "0");
+                let g = Math.min(255, parseInt(m[1], 10)).toString(16).padStart(2, "0");
+                let b = Math.min(255, parseInt(m[2], 10)).toString(16).padStart(2, "0");
+                return `#${r}${g}${b}`.toLowerCase();
+            }
+        }
+        return "#2962ff";
+    }
+
+    function getAlphaHex(str) {
+        if (!str || typeof str !== "string") return "";
+        str = str.trim();
+        if (str.startsWith("#")) {
+            if (str.length === 9) return str.slice(7, 9);
+            if (str.length === 5) return str[4] + str[4];
+        }
+        return "";
+    }
+
+    function onColorPickerChange(key, hex6) {
+        let current = editingProps[key];
+        let alpha = getAlphaHex(current);
+        editingProps[key] = alpha ? (hex6 + alpha) : hex6;
+        emitLiveUpdate();
+    }
+
+    $: visiblePropKeys = Object.keys(propsSchema).length > 0
+        ? Object.keys(propsSchema)
+        : Object.keys(editingProps);
 </script>
 
 {#if open && ov}
@@ -215,10 +270,10 @@
         <div class="tv-modal-body">
             {#if activeTab === "inputs"}
                 <div class="tv-inputs-container">
-                    {#if Object.keys(editingProps).length === 0}
+                    {#if visiblePropKeys.length === 0}
                         <div class="tv-empty-msg">Este indicador no tiene entradas configurables.</div>
                     {:else}
-                        {#each Object.keys(editingProps) as key}
+                        {#each visiblePropKeys as key}
                             {@const type = getPropType(key)}
                             {@const descr = propsSchema[key] || {}}
                             <div class="tv-prop-row">
@@ -244,8 +299,8 @@
                                             <input
                                                 type="color"
                                                 class="tv-color-picker"
-                                                bind:value={editingProps[key]}
-                                                on:input={emitLiveUpdate}
+                                                value={toColorPickerHex(editingProps[key])}
+                                                on:input={(e) => onColorPickerChange(key, e.target.value)}
                                             />
                                             <input
                                                 type="text"
@@ -337,8 +392,8 @@
                                 <input
                                     type="color"
                                     class="tv-color-picker"
-                                    bind:value={editingProps.color}
-                                    on:input={emitLiveUpdate}
+                                    value={toColorPickerHex(editingProps.color)}
+                                    on:input={(e) => onColorPickerChange('color', e.target.value)}
                                 />
                                 <input
                                     type="text"

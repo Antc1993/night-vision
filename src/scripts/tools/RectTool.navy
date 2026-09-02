@@ -11,7 +11,7 @@ init() {
     // Restore rectangles from dataExt
     
     for (var rect of $core.dataExt.rectangles || []) {
-        console.log("RectTool init: restoring rect:", rect.uuid, rect)
+     
         rectangles[rect.uuid] = new $lib.Rectangle($core, rect)
         rectangles[rect.uuid].onSelect = rectangleselected
     }
@@ -136,13 +136,13 @@ newRectangle() {
 }
 
 rectangleselected($uuid) {
-    console.log("RectTool rectangleselected called with uuid:", $uuid)
+ 
     let selectedRect = null;
     for (var uuid in rectangles) {
         rectangles[uuid].selected = uuid === $uuid
         if (rectangles[uuid].selected) selectedRect = rectangles[uuid]
     }
-    console.log("RectTool selectedRect uuid:", selectedRect ? selectedRect.data.uuid : "null")
+    
     $events.emit('update-layout')
 
     if (selectedRect) {

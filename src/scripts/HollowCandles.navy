@@ -1,0 +1,211 @@
+
+// NavyJS ~ 0.2-lite
+
+// <ds>Hollow Candlestick Chart (Native TradingView Style)</ds>
+// Format: [<timestamp>, <open>, <high>, <low>, <close>, <?volume>]
+
+[OVERLAY name=HollowCandles, ctx=Canvas, version=1.1.0]
+
+// Define the props
+prop('colorBodyUp', { type: 'color', def: $core.colors.candleUp })
+prop('colorBodyDw', { type: 'color', def: $core.colors.candleDw })
+prop('colorWickUp', { type: 'color', def: $core.colors.wickUp })
+prop('colorWickDw', { type: 'color', def: $core.colors.wickDw })
+prop('colorVolUp', { type: 'color', def: $core.colors.volUp })
+prop('colorVolDw', { type: 'color', def: $core.colors.volDw })
+prop('showVolume', { type: 'boolean', def: true })
+prop('currencySymbol', { type: 'string', def: '$' })
+prop('showAvgVolume', { type: 'boolean', def: true })
+prop('avgVolumeSMA', { type: 'number', def: 20 })
+prop('colorAvgVol', { type: 'color', def: '#1cccb777' })
+prop('scaleSymbol', { type: 'string|boolean', def: false })
+prop('priceLine', { type: 'boolean', def: true })
+prop('showValueTracker', { type: 'boolean', def: true })
+
+draw(ctx) {
+    const data = $core.data
+    const view = $core.view
+    const layout = $core.layout
+
+    if (!data || !data.length || !view) return
+
+    const config = $core.props.config
+    const { A, B, pxStep, ti2x } = layout
+    const ls = layout.scaleSpecs.log
+    const w = Math.max(Math.floor(pxStep * config.CANDLEW), 1)
+    const halfW = Math.floor(w / 2)
+
+    let upWicks = []
+    let dwWicks = []
+
+    let hollowUp = [] // Close >= Open & Close >= PrevClose
+    let hollowDw = [] // Close >= Open & Close < PrevClose
+    let solidUp = []  // Close < Open & Close >= PrevClose
+    let solidDw = []  // Close < Open & Close < PrevClose
+
+    for (let i = view.i1, n = view.i2; i <= n; i++) {
+        let p = data[i]
+        if (!p) continue
+
+        let prevClose = i > 0 ? (data[i - 1]?.[4] ?? p[1]) : p[1]
+        let isOpenUp = p[4] >= p[1]        // Hollow if true, Solid if false
+        let isPrevUp = p[4] >= prevClose  // Green if true, Red if false
+
+        let mid = ti2x(p[0], i) + 1
+
+        let candle = ls ? {
+            x: mid,
+            w: w,
+            o: Math.floor(Math.log(p[1]) * A + B),
+            h: Math.floor(Math.log(p[2]) * A + B),
+            l: Math.floor(Math.log(p[3]) * A + B),
+            c: Math.floor(Math.log(p[4]) * A + B),
+            green: isPrevUp,
+            src: p
+        } : {
+            x: mid,
+            w: w,
+            o: Math.floor(p[1] * A + B),
+            h: Math.floor(p[2] * A + B),
+            l: Math.floor(p[3] * A + B),
+            c: Math.floor(p[4] * A + B),
+            green: isPrevUp,
+            src: p
+        }
+
+        // Categorize wicks
+        if (isPrevUp) {
+            upWicks.push(candle)
+        } else {
+            dwWicks.push(candle)
+        }
+
+        // Categorize bodies
+        if (isOpenUp) {
+            if (isPrevUp) hollowUp.push(candle)
+            else hollowDw.push(candle)
+        } else {
+            if (isPrevUp) solidUp.push(candle)
+            else solidDw.push(candle)
+        }
+    }
+
+    // 1. Draw Wicks (Batched)
+    drawCvPart(ctx, $lib.candleWick, dwWicks, 1, 'colorWickDw')
+    drawCvPart(ctx, $lib.candleWick, upWicks, 1, 'colorWickUp')
+
+    // 2. Draw Solid Bodies (Batched)
+    drawCvPart(ctx, $lib.candleBody, solidDw, w, 'colorBodyDw')
+    drawCvPart(ctx, $lib.candleBody, solidUp, w, 'colorBodyUp')
+
+    // 3. Draw Hollow Bodies (Mask interior with back color + crisp stroke outline)
+    const backColor = $core.colors.back
+    if (hollowUp.length > 0) {
+        drawHollowBodies(ctx, hollowUp, halfW, w, backColor, $props.colorBodyUp)
+    }
+    if (hollowDw.length > 0) {
+        drawHollowBodies(ctx, hollowDw, halfW, w, backColor, $props.colorBodyDw)
+    }
+
+    // 4. Volume bars
+    if ($props.showVolume) {
+        let cnv = $lib.layoutCnv($core, false, true)
+        drawCvPart(ctx, $lib.volumeBar, cnv.dwVolbars, w, 'colorVolDw')
+        drawCvPart(ctx, $lib.volumeBar, cnv.upVolbars, w, 'colorVolUp')
+        if ($props.showAvgVolume) {
+            $lib.avgVolume(ctx, $core, $props, cnv)
+        }
+    }
+}
+
+// Draw hollow candle bodies: clear wick background & stroke border
+drawHollowBodies(ctx, arr, halfW, w, backColor, strokeColor) {
+    // Fill background to mask the wick
+    ctx.fillStyle = backColor
+    for (let i = 0, n = arr.length; i < n; i++) {
+        let c = arr[i]
+        let top = Math.min(c.o, c.c)
+        let bottom = Math.max(c.o, c.c)
+        let h = Math.max(bottom - top, 1)
+        ctx.fillRect(c.x - 1 - halfW, top, w, h)
+    }
+
+    // Stroke candle outline
+    ctx.strokeStyle = strokeColor
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    for (let i = 0, n = arr.length; i < n; i++) {
+        let c = arr[i]
+        let top = Math.min(c.o, c.c)
+        let bottom = Math.max(c.o, c.c)
+        let h = Math.max(bottom - top, 1)
+        ctx.rect(c.x - 1 - halfW + 0.5, top + 0.5, w - 1, h)
+    }
+    ctx.stroke()
+}
+
+// Draw batched candle sub-elements
+drawCvPart(ctx, f, arr, w, color) {
+    let layout = $core.layout
+    ctx.lineWidth = w
+    ctx.strokeStyle = $props[color]
+    ctx.beginPath()
+    for (var i = 0, n = arr.length; i < n; i++) {
+        f(ctx, arr[i], layout)
+    }
+    ctx.stroke()
+}
+
+// Define y-range (calculating max High and min Low)
+static yRange(data) {
+    if (!data || !data.length) return null
+    let len = data.length
+    var high = -Infinity, low = Infinity
+    for(var i = 0; i < len; i++) {
+        let p = data[i]
+        if (p[2] > high) high = p[2]
+        if (p[3] < low) low = p[3]
+    }
+    return [high, low]
+}
+
+// Precision detection based on Open & Close
+static preSampler(x) => x ? [x[1], x[4]] : []
+
+// Map data item to OHLC
+ohlc(x) => [x[1], x[2], x[3], x[4]]
+
+// Price label + Scale symbol + price line tracker
+valueTracker(x) => {
+    show: $props.showValueTracker,
+    symbol: $props.scaleSymbol,
+    line: $props.priceLine,
+    color: $lib.candleColor($props, $core.data[$core.data.length - 1]),
+    value: x[4]
+}
+
+// Legend
+legendHtml(x, prec, f) {
+    let color1 = $core.colors.text
+    let v = $core.cursor.getValue($core.paneId, $core.id)
+    if (!v) return ''
+    let sym = $props.currencySymbol || '$'
+    let color2 = v[4] >= v[1] ? $props.colorBodyUp : $props.colorBodyDw
+    let fc = $lib.formatCash
+    return `
+    <span style="color: ${color2}">
+        <span style="margin-left: 3px;"></span>
+        <span style="color: ${color1}">O</span>
+        <span class="nvjs-ll-value">${f(v[1])}</span>
+        <span style="color: ${color1}">H</span>
+        <span class="nvjs-ll-value">${f(v[2])}</span>
+        <span style="color: ${color1}">L</span>
+        <span class="nvjs-ll-value">${f(v[3])}</span>
+        <span style="color: ${color1}">C</span>
+        <span class="nvjs-ll-value">${f(v[4])}</span>
+    `
+    + ($props.showVolume && v[5] !== undefined ? `
+        <span style="color: ${color1}">V</span>
+        <span class="nvjs-ll-value">${sym+fc(v[5])}</span>` : ``)
+    + `</span>`
+}

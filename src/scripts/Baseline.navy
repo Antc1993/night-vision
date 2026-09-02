@@ -1,0 +1,230 @@
+
+// NavyJS ~ 0.2-lite
+
+// <ds>Baseline Chart (Native Clipping & Gradients)</ds>, format:
+// [<timestamp>, <open>, <high>, <low>, <close>, <?volume>]
+
+[OVERLAY name=Baseline, ctx=Canvas, version=1.1.0]
+
+// Define props
+prop('colorTop', { type: 'color', def: '#10b981' })
+prop('colorBottom', { type: 'color', def: '#ef4444' })
+prop('backTop1', { type: 'color', def: '#10b98138' })
+prop('backTop2', { type: 'color', def: '#10b98104' })
+prop('backBottom1', { type: 'color', def: '#ef444404' })
+prop('backBottom2', { type: 'color', def: '#ef444438' })
+prop('colorBaseline', { type: 'color', def: '#787b86aa' })
+prop('lineWidth', { type: 'number', def: 1.5 })
+prop('dataIndex', { type: 'integer', def: 4 })
+prop('baselineLevel', { type: 'number', def: null })
+prop('showVolume', { type: 'boolean', def: true })
+prop('currencySymbol', { type: 'string', def: '$' })
+prop('showAvgVolume', { type: 'boolean', def: true })
+prop('avgVolumeSMA', { type: 'number', def: 20 })
+prop('colorAvgVol', { type: 'color', def: '#1cccb777' })
+prop('scaleSymbol', { type: 'string|boolean', def: false })
+prop('priceLine', { type: 'boolean', def: true })
+prop('showValueTracker', { type: 'boolean', def: true })
+
+draw(ctx) {
+    const layout = $core.layout
+    const data = $core.data
+    const view = $core.view
+    const idx = $props.dataIndex || 4
+
+    if (!data || !data.length || !view || view.i1 > view.i2) return
+
+    // 1. Calculate baseline value
+    let baseVal = $props.baselineLevel
+    if (baseVal === null || baseVal === undefined) {
+        let first = data[view.i1] || data[0]
+        baseVal = first[idx] !== undefined ? first[idx] : first[1]
+    }
+    const baseY = layout.value2y(baseVal)
+
+    // Build coordinates for line & area polygon
+    let pts = []
+    for (let i = view.i1, n = view.i2; i <= n; i++) {
+        let p = data[i]
+        if (!p) continue
+        let val = p[idx] !== undefined ? p[idx] : p[1]
+        pts.push({
+            x: layout.ti2x(p[0], i),
+            y: layout.value2y(val),
+            val: val
+        })
+    }
+
+    if (pts.length < 2) return
+
+    const xFirst = pts[0].x
+    const xLast = pts[pts.length - 1].x
+    const width = layout.width
+    const height = layout.height
+
+    // Helper: Trace the price line path
+    function tracePriceLine() {
+        ctx.beginPath()
+        ctx.moveTo(pts[0].x, pts[0].y)
+        for (let i = 1; i < pts.length; i++) {
+            ctx.lineTo(pts[i].x, pts[i].y)
+        }
+    }
+
+    // Helper: Trace the closed polygon to baseline
+    function traceClosedArea() {
+        ctx.beginPath()
+        ctx.moveTo(xFirst, baseY)
+        for (let i = 0; i < pts.length; i++) {
+            ctx.lineTo(pts[i].x, pts[i].y)
+        }
+        ctx.lineTo(xLast, baseY)
+        ctx.closePath()
+    }
+
+    // 2. Render Top Area & Line (Clipped to region above baseline)
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(0, 0, width, Math.max(baseY, 0))
+    ctx.clip()
+
+    // Top Area Fill with smooth gradient
+    const grdTop = ctx.createLinearGradient(0, 0, 0, baseY)
+    grdTop.addColorStop(0, $props.backTop1)
+    grdTop.addColorStop(1, $props.backTop2)
+    ctx.fillStyle = grdTop
+    traceClosedArea()
+    ctx.fill()
+
+    // Top Stroke Line
+    ctx.strokeStyle = $props.colorTop
+    ctx.lineWidth = $props.lineWidth
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+    tracePriceLine()
+    ctx.stroke()
+    ctx.restore()
+
+    // 3. Render Bottom Area & Line (Clipped to region below baseline)
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(0, baseY, width, Math.max(height - baseY, 0))
+    ctx.clip()
+
+    // Bottom Area Fill with smooth gradient
+    const grdBottom = ctx.createLinearGradient(0, baseY, 0, height)
+    grdBottom.addColorStop(0, $props.backBottom1)
+    grdBottom.addColorStop(1, $props.backBottom2)
+    ctx.fillStyle = grdBottom
+    traceClosedArea()
+    ctx.fill()
+
+    // Bottom Stroke Line
+    ctx.strokeStyle = $props.colorBottom
+    ctx.lineWidth = $props.lineWidth
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+    tracePriceLine()
+    ctx.stroke()
+    ctx.restore()
+
+    // 4. Draw Baseline Reference Dotted Line
+    ctx.save()
+    ctx.strokeStyle = $props.colorBaseline
+    ctx.lineWidth = 1
+    ctx.setLineDash([4, 4])
+    ctx.beginPath()
+    ctx.moveTo(0, baseY - 0.5)
+    ctx.lineTo(width, baseY - 0.5)
+    ctx.stroke()
+    ctx.restore()
+
+    // 5. Volume bars
+    if ($props.showVolume) {
+        let cnv = $lib.layoutCnv($core, false, true)
+        let config = $core.props.config
+        let w = Math.max(Math.floor(layout.pxStep * config.CANDLEW), 1)
+
+        drawCvPart(ctx, $lib.volumeBar, cnv.dwVolbars, w, 'colorBottom')
+        drawCvPart(ctx, $lib.volumeBar, cnv.upVolbars, w, 'colorTop')
+        if ($props.showAvgVolume) {
+            $lib.avgVolume(ctx, $core, $props, cnv)
+        }
+    }
+}
+
+// Draw batched volume
+drawCvPart(ctx, f, arr, w, colorProp) {
+    let layout = $core.layout
+    ctx.lineWidth = w
+    ctx.strokeStyle = $props[colorProp]
+    ctx.beginPath()
+    for (var i = 0, n = arr.length; i < n; i++) {
+        f(ctx, arr[i], layout)
+    }
+    ctx.stroke()
+}
+
+// Define y-range (calculating max High and min Low)
+static yRange(data) {
+    if (!data || !data.length) return null
+    let len = data.length
+    var high = -Infinity, low = Infinity
+    for(var i = 0; i < len; i++) {
+        let p = data[i]
+        let v = p[4] !== undefined ? p[4] : p[1]
+        if (p[2] !== undefined && p[2] > high) high = p[2]
+        else if (v > high) high = v
+
+        if (p[3] !== undefined && p[3] < low) low = p[3]
+        else if (v < low) low = v
+    }
+    return [high, low]
+}
+
+// Precision sampling
+static preSampler(x) => x ? [x[4] !== undefined ? x[4] : x[1]] : []
+
+// Map data item to OHLC
+ohlc(x) => Array(4).fill(x[4] !== undefined ? x[4] : x[1])
+
+// Price label + Scale symbol + price line tracker
+valueTracker(x) {
+    let val = x[4] !== undefined ? x[4] : x[1]
+    let base = $props.baselineLevel ?? ($core.data?.[0]?.[4] ?? val)
+    let isUp = val >= base
+    return {
+        show: $props.showValueTracker,
+        symbol: $props.scaleSymbol,
+        line: $props.priceLine,
+        color: isUp ? $props.colorTop : $props.colorBottom,
+        value: val
+    }
+}
+
+// Legend
+legendHtml(x, prec, f) {
+    let color1 = $core.colors.text
+    let val = x[4] !== undefined ? x[4] : x[1]
+    let base = $props.baselineLevel ?? ($core.data?.[0]?.[4] ?? val)
+    let isUp = val >= base
+    let color2 = isUp ? $props.colorTop : $props.colorBottom
+    let sym = $props.currencySymbol || '$'
+    let fc = $lib.formatCash
+
+    let diff = val - base
+    let pct = base !== 0 ? ((diff / base) * 100).toFixed(2) : '0.00'
+    let sign = diff >= 0 ? '+' : ''
+
+    return `
+    <span style="color: ${color2}">
+        <span style="margin-left: 3px;"></span>
+        <span style="color: ${color1}">Baseline:</span>
+        <span class="nvjs-ll-value">${f(val)}</span>
+        <span style="font-size: 11px; margin-left: 4px;">(${sign}${pct}%)</span>
+    `
+    + ($props.showVolume && x[5] !== undefined ? `
+        <span style="color: ${color1}; margin-left: 6px;">V</span>
+        <span class="nvjs-ll-value">${sym+fc(x[5])}</span>` : ``)
+    + `</span>`
+}

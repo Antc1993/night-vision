@@ -298,35 +298,6 @@
             desc: "Histograma diferencial de volumen comprador vs vendedor (Order Flow Delta).",
             pane: "new",
             isOverlay: true
-        },
-
-        // --- OVERLAYS Y DIBUJOS ---
-        {
-            type: "AppleArea",
-            name: "Apple Area Spline",
-            category: "overlays",
-            catLabel: "Overlay",
-            desc: "Gráfico de área suave con gradiente estético debajo de la línea de precio.",
-            pane: "main",
-            isOverlay: true
-        },
-        {
-            type: "PriceLabels",
-            name: "Dynamic Price Labels",
-            category: "overlays",
-            catLabel: "Overlay",
-            desc: "Etiquetas flotantes automáticas con los precios máximos y mínimos de cada barra.",
-            pane: "main",
-            isOverlay: true
-        },
-        {
-            type: "Cloud",
-            name: "Color Cloud",
-            category: "overlays",
-            catLabel: "Overlay",
-            desc: "Área sombreada semitransparente delimitada entre dos niveles o curvas.",
-            pane: "main",
-            isOverlay: true
         }
     ];
 
@@ -335,8 +306,7 @@
         { id: "trend", label: "Medias Móviles / Tendencia" },
         { id: "oscillators", label: "Osciladores" },
         { id: "volatility", label: "Volatilidad" },
-        { id: "volume", label: "Volumen" },
-        { id: "overlays", label: "Overlays" }
+        { id: "volume", label: "Volumen" }
     ];
 
     events.on("open-indicators-modal", onOpen);

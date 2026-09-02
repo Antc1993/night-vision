@@ -176,9 +176,13 @@ class NightVision {
 
     // Various updates of the chart
     update(type = 'layout', opt = {}) {
-        var [type, id] = type.split('-')
+        if (typeof type === 'object' && type !== null) {
+            opt = type
+            type = 'layout'
+        }
+        var [action, id] = (typeof type === 'string' ? type : 'layout').split('-')
         const ev = this.events
-        switch(type) {
+        switch(action) {
             case 'layout':
                 ev.emitSpec('chart', 'update-layout', opt)
             break

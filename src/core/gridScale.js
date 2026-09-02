@@ -150,21 +150,29 @@ export default function Scale(id, src, specs) {
         let maxR = 0
         let sample = []
 
+        if (!ov.dataSubset || !ov.dataSubset.length) {
+            return meta.getAutoPrec(gridId, ov.id) ?? 2
+        }
+
         // Sample N random elements from the current subset
         let f = meta.getPreSampler(gridId, ov.id)
-        f = f || prefabs[ov.type].static.preSampler 
+        f = f || (prefabs[ov.type] && prefabs[ov.type].static && prefabs[ov.type].static.preSampler)
         f = f || Utils.defaultPreSampler
         for (var i = 0; i < SAMPLE; i++) {
             // Random element n
             let n = Math.floor(Math.random() * ov.dataSubset.length)
-            let x = f(ov.dataSubset[n])
-            if (typeof x === 'number') sample.push(x)
-            else sample = sample.concat(x)
+            let el = ov.dataSubset[n]
+            if (el) {
+                let x = f(el)
+                if (typeof x === 'number') sample.push(x)
+                else if (Array.isArray(x)) sample = sample.concat(x.filter(v => typeof v === 'number'))
+                else if (x != null) sample.push(x)
+            }
         }
 
         sample.forEach(x => {
-            let right = Utils.numberLR(x)[1]
-            if (right > maxR) maxR = right
+            let lr = Utils.numberLR(x)
+            if (lr && lr[1] > maxR) maxR = lr[1]
         })
 
         // Update stored auto-precision

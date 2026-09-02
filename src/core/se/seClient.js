@@ -101,10 +101,12 @@ class SeClient {
         }
         let range = this.chart.range || (this.hub.chart ? this.hub.chart.range : []) || []
         this.hub.calcSubset(range)
-        this.chart.update('grid', { updateHash: true })
+        this.chart.update('layout', { updateHash: true })
+        this.chart.update('grid')
+        this.chart.update('legend')
     }
 
-    // Opdate data of overlays produced by scripts
+    // Update data of overlays produced by scripts
     updateOverlays(data) {
         for (var pane of this.hub.panes()) {
             let p = data.find(x => x.uuid === pane.uuid)
@@ -118,14 +120,17 @@ class SeClient {
                         dst.name = src.name
                         dst.data = src.data
                         dst.uuid = src.uuid
+                        dst.props = Object.assign(dst.props || {}, src.props || {})
+                        dst.settings = Object.assign(dst.settings || {}, src.settings || {})
                     }
                 }
             }
         }
         let range = this.chart.range || (this.hub.chart ? this.hub.chart.range : []) || []
         this.hub.calcSubset(range)
-        // Updating only data, preventing full update
-        this.chart.update('data', {updateHash: true})
+        this.chart.update('layout', { updateHash: true })
+        this.chart.update('grid')
+        this.chart.update('legend')
     }
 
     // Event handlers
