@@ -66,24 +66,29 @@ yRange(data, hi, lo) {
 
 // Legend, defined as pairs [value, color]
 legendHtml(x) {
-    let v = $core.cursor.getValue($core.paneId, $core.id)
-    let sym = $props.currencySymbol
+    let v = $core.cursor.getValue($core.paneId, $core.id) || x || []
+    let sym = $props.currencySymbol || '$'
     let color1 = $core.colors.text
-    let color2 = v[4] > 0 ?
+    let deltaVal = v[4] !== undefined ? v[4] : 0
+    let color2 = deltaVal > 0 ?
         $props.colorVolDeltaUp : $props.colorVolDeltaDw
     let fc = $lib.formatCash
-    let sign = v[4] > 0 ? '+' : ''
+    let sign = deltaVal > 0 ? '+' : ''
+    let bVal = (x && x[1] !== undefined) ? x[1] : (v[1] !== undefined ? v[1] : 0)
+    let sVal = (x && x[2] !== undefined) ? x[2] : (v[2] !== undefined ? v[2] : 0)
+    let sumVal = (x && x[3] !== undefined) ? x[3] : (v[3] !== undefined ? v[3] : 0)
+    let dVal = (x && x[4] !== undefined) ? x[4] : (v[4] !== undefined ? v[4] : 0)
     return `
     <span style="color: ${color2}">
         <span style="margin-left: 3px;"></span>
         <span style="color: ${color1}">B</span>
-        <span class="nvjs-ll-value">${fc(x[1])}</span>
+        <span class="nvjs-ll-value">${fc(bVal)}</span>
         <span style="color: ${color1}">S</span>
-        <span class="nvjs-ll-value">${fc(x[2])}</span>
+        <span class="nvjs-ll-value">${fc(sVal)}</span>
         <span style="color: ${color1}">Σ</span>
-        <span class="nvjs-ll-value">${fc(x[3])}</span>
+        <span class="nvjs-ll-value">${fc(sumVal)}</span>
         <span style="color: ${color1}">Δ</span>
-        <span class="nvjs-ll-value">${sign}${fc(x[4])}</span>
+        <span class="nvjs-ll-value">${sign}${fc(dVal)}</span>
     `
     //return [[sym + fc(x[1]), color.slice(0, 7)]]
 }

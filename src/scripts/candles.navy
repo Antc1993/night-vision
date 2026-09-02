@@ -13,9 +13,9 @@ prop('colorWickUp', { type: 'color', def: $core.colors.wickUp })
 prop('colorWickDw', { type: 'color', def: $core.colors.wickDw })
 prop('colorVolUp', { type: 'color', def: $core.colors.volUp })
 prop('colorVolDw', { type: 'color', def: $core.colors.volDw })
-prop('showVolume', { type: 'boolean', def: true })
+prop('showVolume', { type: 'boolean', def: false })
 prop('currencySymbol', { type: 'string', def: '$' })
-prop('showAvgVolume', { type: 'boolean', def: true })
+prop('showAvgVolume', { type: 'boolean', def: false })
 prop('avgVolumeSMA', { type: 'number', def: 20 })
 prop('colorAvgVol', { type: 'color', def: '#1cccb777'})
 prop('scaleSymbol', { type: 'string|boolean', def: false })
@@ -86,25 +86,30 @@ valueTracker(x) => {
 // Define the OHLCV legend
 legendHtml(x, prec, f) {
     let color1 = $core.colors.text
-    let v = $core.cursor.getValue($core.paneId, $core.id)
-    let sym = $props.currencySymbol
-    let color2 = v[4] >= v[1] ?
-        $props.colorBodyUp : $props.colorBodyDw
+    let v = $core.cursor.getValue($core.paneId, $core.id) || x || []
+    let sym = $props.currencySymbol || '$'
+    let isUp = (v[4] !== undefined && v[1] !== undefined) ? v[4] >= v[1] : true
+    let color2 = isUp ? $props.colorBodyUp : $props.colorBodyDw
     let fc = $lib.formatCash
+    let o = (x && x[1] !== undefined) ? x[1] : (v[1] !== undefined ? v[1] : 0)
+    let h = (x && x[2] !== undefined) ? x[2] : (v[2] !== undefined ? v[2] : 0)
+    let l = (x && x[3] !== undefined) ? x[3] : (v[3] !== undefined ? v[3] : 0)
+    let c = (x && x[4] !== undefined) ? x[4] : (v[4] !== undefined ? v[4] : 0)
+    let vol = (x && x[5] !== undefined) ? x[5] : v[5]
     return `
     <span style="color: ${color2}">
         <span style="margin-left: 3px;"></span>
         <span style="color: ${color1}">O</span>
-        <span class="nvjs-ll-value">${f(x[1])}</span>
+        <span class="nvjs-ll-value">${f(o)}</span>
         <span style="color: ${color1}">H</span>
-        <span class="nvjs-ll-value">${f(x[2])}</span>
+        <span class="nvjs-ll-value">${f(h)}</span>
         <span style="color: ${color1}">L</span>
-        <span class="nvjs-ll-value">${f(x[3])}</span>
+        <span class="nvjs-ll-value">${f(l)}</span>
         <span style="color: ${color1}">C</span>
-        <span class="nvjs-ll-value">${f(x[4])}</span>
+        <span class="nvjs-ll-value">${f(c)}</span>
     `
-    + ($props.showVolume ? `
+    + ($props.showVolume && vol !== undefined ? `
         <span style="color: ${color1}">V</span>
-        <span class="nvjs-ll-value">${sym+fc(x[5])}</span>` : ``)
+        <span class="nvjs-ll-value">${sym+fc(vol)}</span>` : ``)
     + `</span>`
-    }
+}

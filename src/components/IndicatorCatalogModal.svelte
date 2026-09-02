@@ -282,13 +282,22 @@
 
         // --- VOLUMEN Y FLUJO ---
         {
-            type: "Volume",
-            name: "Volume & Volume SMA",
+            type: "VolumeMain",
+            name: "Volume (Overlay Principal)",
             category: "volume",
             catLabel: "Volumen",
-            desc: "Barras de volumen coloreadas con línea de promedio móvil de volumen opcional.",
+            desc: "Barras de volumen discretas en el fondo del gráfico principal con línea SMA opcional.",
+            pane: "main",
+            isOverlay: false
+        },
+        {
+            type: "Volume",
+            name: "Volume & Volume SMA (Sub-panel)",
+            category: "volume",
+            catLabel: "Volumen",
+            desc: "Panel independiente de volumen con barras alcistas/bajistas y media móvil SMA.",
             pane: "new",
-            isOverlay: true
+            isOverlay: false
         },
         {
             type: "VolumeDelta",

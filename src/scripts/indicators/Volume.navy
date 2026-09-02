@@ -1,0 +1,38 @@
+
+// Navy ~ 0.2-lite
+// <ds>Volume & Volume SMA</ds>
+
+[INDICATOR name=Volume, version=1.1.0]
+
+prop('length', { type: 'integer', def: 20 })
+prop('colorVolUp', { type: 'color', def: '#26a69a82' })
+prop('colorVolDw', { type: 'color', def: '#ef535082' })
+prop('showSMA', { type: 'boolean', def: true })
+prop('colorSMA', { type: 'color', def: '#2962ff' })
+prop('prec', { type: 'integer', def: 2 })
+prop('zIndex', { type: 'integer', def: 0 })
+
+let $ = $props
+
+this.specs = {
+    name: 'Volume',
+    props: {
+        colorVolUp: $.colorVolUp,
+        colorVolDw: $.colorVolDw,
+        showAvgVolume: $.showSMA,
+        avgVolumeSMA: $.length,
+        colorAvgVol: $.colorSMA,
+        precision: $.prec
+    },
+    settings: {
+        precision: $.prec,
+        zIndex: $.zIndex
+    }
+}
+
+[UPDATE]
+
+let v = vol[0] !== undefined ? vol[0] : 0
+let dir = close[0] >= open[0] ? 1 : -1
+
+Volume([v, dir], this.specs)
