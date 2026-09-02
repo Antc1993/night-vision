@@ -81,10 +81,11 @@ function onClick(index) {
 <style>
 .scale-selector {
     position: absolute;
-    bottom: 5px;
+    top: 6px;
     display: grid;
     justify-content: center;
     align-content: center;
+    z-index: 10;
 }
 .scale-button {
     border-radius: 3px;

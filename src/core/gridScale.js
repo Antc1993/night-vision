@@ -118,7 +118,7 @@ export default function Scale(id, src, specs) {
         }
 
         // Fixed y-range in non-auto mode
-        if (yt && !yt.auto && yt.range) {
+        if (yt && !yt.auto && yt.range && isFinite(yt.range[0]) && isFinite(yt.range[1]) && yt.range[0] > yt.range[1]) {
             self.$hi = yt.range[0]
             self.$lo = yt.range[1]
         } else {
@@ -269,94 +269,46 @@ export default function Scale(id, src, specs) {
 
     // Build the Y-axis grid (log mode)
     function gridYLog() {
-
-        // TODO: Prevent duplicate levels, is this even
-        // a problem here ?
-        self.$_mult = dollarMult()
         self.ys = []
-
-        let v = (self.$hi + self.$lo) / 2 // Use mid point
-        let y1 = searchStartPos(v)
-        let y2 = searchStartNeg(-v)
-        let yp = -Infinity // Previous y value
-        let n = height / props.config.GRIDY // target grid N
-
-        let q = 1 + (self.$_mult - 1) / 2
-
-        // Over 0
-        for (var y$ = y1; y$ > 0; y$ /= self.$_mult) {
-            y$ = logRounder(y$, q)
-            let y = Math.floor(math.log(y$) * self.A + self.B)
-            self.ys.push([y, Utils.strip(y$)])
-            if (y > height) break
-            if (y - yp < props.config.GRIDY * 0.7) break
-            if (self.ys.length > n + 1) break
-            yp = y
+        if (self.$hi <= 0 || self.$lo <= 0) {
+            // Fallback for non-positive values
+            gridY()
+            return
         }
 
-        // Under 0
-        yp = Infinity
-        for (var y$ = y2; y$ < 0; y$ /= self.$_mult) {
-            y$ = logRounder(y$, q)
-            let y = Math.floor(math.log(y$) * self.A + self.B)
-            if (yp - y < props.config.GRIDY * 0.7) break
-            self.ys.push([y, Utils.strip(y$)])
-            if (y < 0) break
-            if (self.ys.length > n * 3 + 1) break
-            yp = y
-        }
+        let ratio = self.$hi / self.$lo
+        if (ratio < 2.5) {
+            // Narrow range: use optimal linear price intervals mapped to logarithmic Y coordinates
+            let m = Math.pow(10, -self.prec)
+            let step = Math.max(m, dollarStep())
+            let y1 = self.$lo - (self.$lo % step)
 
-        // TODO: remove lines near to 0
-
-    }
-
-    // Search a start for the top grid so that
-    // the fixed value always included
-    function searchStartPos(value) {
-        let N = height / props.config.GRIDY // target grid N
-        var y = Infinity, y$ = value, count = 0
-        while (y > 0) {
-            y = Math.floor(math.log(y$) * self.A + self.B)
-            y$ *= self.$_mult
-            if (count++ > N * 3) return 0 // Prevents deadloops
-        }
-        return y$
-    }
-
-    function searchStartNeg(value) {
-        let N = height / props.config.GRIDY // target grid N
-        var y = -Infinity, y$ = value, count = 0
-        while (y < height) {
-            y = Math.floor(math.log(y$) * self.A + self.B)
-            y$ *= self.$_mult
-            if (count++ > N * 3) break // Prevents deadloops
-        }
-        return y$
-    }
-
-    // Make log scale levels look great again
-    function logRounder(x, quality) {
-        let s = Math.sign(x)
-        x = Math.abs(x)
-        if (x > 10) {
-            for (var div = 10; div < MAX_INT; div *= 10) {
-                let nice = Math.floor(x / div) * div
-                if (x / nice > quality) {  // More than 10% off
-                    break
+            for (let y$ = y1; y$ <= self.$hi; y$ += step) {
+                if (y$ <= 0) continue
+                let y = Math.floor(math.log(y$) * self.A + self.B)
+                if (y >= 0 && y <= height) {
+                    self.ys.push([y, Utils.strip(y$)])
                 }
             }
-            div /= 10
-            return s * Math.floor(x / div) * div
-        } else if (x < 1) {
-            for (var ro = 10; ro >= 1; ro--) {
-                let nice = Utils.round(x, ro)
-                if (x / nice > quality) {  // More than 10% off
-                    break
-                }
-            }
-            return s * Utils.round(x, ro + 1)
         } else {
-            return s * Math.floor(x)
+            // Wide range spanning orders of magnitude
+            let decades = Math.log10(ratio)
+            let mults = decades > 5 ? [1] : [1, 2, 5]
+            let basePower = Math.floor(Math.log10(self.$lo))
+            let topPower = Math.ceil(Math.log10(self.$hi))
+
+            for (let p = basePower; p <= topPower; p++) {
+                let base = Math.pow(10, p)
+                for (let mult of mults) {
+                    let val = base * mult
+                    if (val >= self.$lo && val <= self.$hi) {
+                        let y = Math.floor(math.log(val) * self.A + self.B)
+                        if (y >= 0 && y <= height) {
+                            self.ys.push([y, Utils.strip(val)])
+                        }
+                    }
+                }
+            }
         }
     }
 

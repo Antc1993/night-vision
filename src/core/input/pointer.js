@@ -316,43 +316,72 @@ export default class Input {
         }
 
         if (this.trackpad) delta *= 0.032
-
         delta = Utils.smartWheel(delta)
 
         const dpr = window.devicePixelRatio ?? 1;
 
-        // TODO: mouse zooming is a little jerky,
-        // needs to follow f(mouse_wheel_speed) and
-        // if speed is low, scroll shoud be slower
-        let data = this.hub.mainOv.dataSubset
-        if (delta < 0 && data.length <= this.MIN_ZOOM) return
-        if (delta > 0 && data.length > this.MAX_ZOOM) return
-        let k = this.interval / 1000
-        let diff = delta * k * data.length
+        let dt = this.range[1] - this.range[0]
+        if (dt <= 0) return
+
+        let zoomSign = Math.sign(delta)
+        if (zoomSign === 0) return
+
+        // Proportional zoom factor: ~10% per mouse wheel step
+        let zoomFactor = Math.min(Math.abs(delta) * 0.0025, 0.25)
+        let diff = dt * zoomFactor * zoomSign
+
+        let minRange = Math.max(this.interval * this.MIN_ZOOM, 1000)
+        let maxRange = Math.max(this.interval * this.MAX_ZOOM, minRange * 100)
+
+        let newR0 = this.range[0]
+        let newR1 = this.range[1]
+
         let tl = this.props.config.ZOOM_MODE === 'tl'
+
         if (event.originalEvent.ctrlKey || tl) {
             let offset = event.originalEvent.offsetX
-            let diff1 = offset / (this.canvas.width/dpr-1) * diff
+            let width = Math.max(this.canvas.width / dpr - 1, 1)
+            let ratio = Math.max(0, Math.min(offset / width, 1))
+            let diff1 = ratio * diff
             let diff2 = diff - diff1
-            this.range[0] -= diff1
-            this.range[1] += diff2
+            newR0 -= diff1
+            newR1 += diff2
         } else {
-            this.range[0] -= diff
+            // Mode 'tv': zoom anchored to the right side
+            newR0 -= diff
         }
+
+        // Clamp minimum and maximum zoom to strictly prevent range inversion or blank screen
+        if (newR1 - newR0 < minRange) {
+            if (event.originalEvent.ctrlKey || tl) {
+                let offset = event.originalEvent.offsetX
+                let width = Math.max(this.canvas.width / dpr - 1, 1)
+                let ratio = Math.max(0, Math.min(offset / width, 1))
+                let currentPoint = this.range[0] + (this.range[1] - this.range[0]) * ratio
+                newR0 = Math.round(currentPoint - minRange * ratio)
+                newR1 = Math.round(currentPoint + minRange * (1 - ratio))
+            } else {
+                newR0 = Math.round(this.range[1] - minRange)
+                newR1 = this.range[1]
+            }
+        } else if (newR1 - newR0 > maxRange) {
+            newR0 = this.range[0]
+            newR1 = this.range[1]
+        }
+
+        this.range[0] = newR0
+        this.range[1] = newR1
 
         if (tl) {
             let offset = event.originalEvent.offsetY
-            let diff1 = offset / (this.canvas.height/dpr-1) * 2
+            let diff1 = offset / (this.canvas.height / dpr - 1) * 2
             let diff2 = 2 - diff1
-            let z = diff / (this.range[1] - this.range[0])
-            //rezoom_range(z, diff_x, diff_y)
-            // TODO: ?implement
+            let z = diff / Math.max(this.range[1] - this.range[0], 1)
             this.events.emit('rezoom-range', {
                 gridId: this.gridId, z, diff1, diff2
             })
         }
-        // TODO: fix doulbe updates (only on120hz macbook)
-        /*if (!updated)*/ this.changeRange()
+        this.changeRange()
 
     }
 

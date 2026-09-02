@@ -250,23 +250,15 @@ export default class ScriptEnv {
 
     parentheses(str) {
         var count = 0, first = false
-        var q1 = false, q2 = false, q3 = false
         for (var i = 0; i < str.length; i++) {
-            let ch = str[i]
-            if (ch === "'" && !q2 && !q3 && str[i - 1] !== '\\') q1 = !q1
-            else if (ch === '"' && !q1 && !q3 && str[i - 1] !== '\\') q2 = !q2
-            else if (ch === '`' && !q1 && !q2 && str[i - 1] !== '\\') q3 = !q3
-
-            if (!q1 && !q2 && !q3) {
-                if (ch === '(') {
-                    count++
-                    first = true
-                } else if (ch === ')') {
-                    count--
-                }
-                if (first && count === 0) {
-                    return str.substr(0, i+1)
-                }
+            if (str[i] === '(') {
+                count++
+                first = true
+            } else if (str[i] === ')') {
+                count--
+            }
+            if (first && count === 0) {
+                return str.substr(0, i+1)
             }
         }
         return str
@@ -275,24 +267,16 @@ export default class ScriptEnv {
     args2(str) {
         var count = 0, first = false
         var i1 = 0
-        var q1 = false, q2 = false, q3 = false
         for (var i = 0; i < str.length; i++) {
-            let ch = str[i]
-            if (ch === "'" && !q2 && !q3 && str[i - 1] !== '\\') q1 = !q1
-            else if (ch === '"' && !q1 && !q3 && str[i - 1] !== '\\') q2 = !q2
-            else if (ch === '`' && !q1 && !q2 && str[i - 1] !== '\\') q3 = !q3
-
-            if (!q1 && !q2 && !q3) {
-                if (ch === '(') {
-                    count++
-                    if (!first) i1 = i + 1
-                    first = true
-                } else if (ch === ')') {
-                    count--
-                }
-                if (first && count === 0) {
-                    return str.substring(i1, i)
-                }
+            if (str[i] === '(') {
+                count++
+                if (!first) i1 = i + 1
+                first = true
+            } else if (str[i] === ')') {
+                count--
+            }
+            if (first && count === 0) {
+                return str.substring(i1, i)
             }
         }
         return str

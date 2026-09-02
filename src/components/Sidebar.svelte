@@ -16,6 +16,7 @@
 import { onMount, onDestroy } from 'svelte'
 import { fade } from 'svelte/transition'
 import ScaleSelector from './ScaleSelector.svelte'
+import ScaleControls from './ScaleControls.svelte'
 import Events from '../core/events.js'
 import Utils from '../stuff/utils.js'
 import Const from '../stuff/constants.js'
@@ -221,9 +222,9 @@ function resizeWatch() {
 
 function calcZoom(event) {
     let d = drug.y - event.center.y
-    let speed = d > 0 ? 3 : 1
-    let k = 1 + speed * d / layout.height
-    return Utils.clamp(drug.z * k, 0.005, 100)
+    let factor = (d / (layout.height || 300)) * 2.0
+    let k = Math.exp(factor)
+    return Utils.clamp(drug.z * k, 0.05, 50)
 }
 
 // Not the best place to calculate y-range but
@@ -238,20 +239,27 @@ function calcRange(diff1 = 1, diff2 = 1) {
     let delta = range[0] - range[1]
 
     if (!scale.log) {
-        range[0] = range[0] + delta * zk * diff1
-        range[1] = range[1] - delta * zk * diff2
+        let hi = range[0] + delta * zk * diff1
+        let lo = range[1] - delta * zk * diff2
+        if (hi > lo && isFinite(hi) && isFinite(lo)) {
+            range[0] = hi
+            range[1] = lo
+        }
     } else {
 
         let px_mid = layout.height / 2
         let new_hi = px_mid - px_mid * (1 / z)
         let new_lo = px_mid + px_mid * (1 / z)
 
-        // Use old mapping to get a new range
-        let f = y => math.exp((y - drug.B) / drug.A)
-
-        let copy = range.slice()
-        range[0] = f(new_hi)
-        range[1] = f(new_lo)
+        if (drug.A && isFinite(drug.A) && drug.A !== 0) {
+            let f = y => math.exp((y - drug.B) / drug.A)
+            let hi = f(new_hi)
+            let lo = f(new_lo)
+            if (hi > lo && hi > 0 && lo > 0 && isFinite(hi) && isFinite(lo)) {
+                range[0] = hi
+                range[1] = lo
+            }
+        }
 
     }
 
@@ -350,5 +358,8 @@ function onMouseLeave() {
     {#if scales.length > 1 && showSwitch}
         <ScaleSelector {id} {props} {layout}
             {scales} {side} />
+    {/if}
+    {#if side === 'right'}
+        <ScaleControls {id} {props} {layout} {side} {scale} />
     {/if}
 </div>
