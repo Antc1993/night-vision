@@ -87,4 +87,28 @@
         position: relative;
         direction: ltr; /* TODO: Explore */
     }
+
+    /* Global modern dark scrollbars */
+    :global(.night-vision *) {
+        scrollbar-width: thin;
+        scrollbar-color: #363c4e transparent;
+    }
+    :global(.night-vision *::-webkit-scrollbar) {
+        width: 6px;
+        height: 6px;
+    }
+    :global(.night-vision *::-webkit-scrollbar-track) {
+        background: transparent;
+    }
+    :global(.night-vision *::-webkit-scrollbar-thumb) {
+        background-color: #363c4e;
+        border-radius: 4px;
+        transition: background-color 0.15s ease;
+    }
+    :global(.night-vision *::-webkit-scrollbar-thumb:hover) {
+        background-color: #505668;
+    }
+    :global(.night-vision *::-webkit-scrollbar-corner) {
+        background: transparent;
+    }
 </style>

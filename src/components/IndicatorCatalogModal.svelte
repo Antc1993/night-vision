@@ -597,6 +597,11 @@
         padding: 4px 18px 10px 18px;
         overflow-x: auto;
         border-bottom: 1px solid #2a2e39;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    .tv-cat-pills::-webkit-scrollbar {
+        display: none;
     }
     .tv-cat-pill {
         background: #131722;
@@ -629,6 +634,21 @@
         display: flex;
         flex-direction: column;
         gap: 4px;
+        scrollbar-width: thin;
+        scrollbar-color: #363c4e transparent;
+    }
+    .tv-ind-list::-webkit-scrollbar {
+        width: 6px;
+    }
+    .tv-ind-list::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .tv-ind-list::-webkit-scrollbar-thumb {
+        background-color: #363c4e;
+        border-radius: 4px;
+    }
+    .tv-ind-list::-webkit-scrollbar-thumb:hover {
+        background-color: #505668;
     }
 
     .tv-ind-item {

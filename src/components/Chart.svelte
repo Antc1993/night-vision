@@ -19,6 +19,7 @@
     import FloatingToolbar from "./FloatingToolbar.svelte";
     import ScriptSettingsModal from "./ScriptSettingsModal.svelte";
     import IndicatorCatalogModal from "./IndicatorCatalogModal.svelte";
+    import PaneSplitter from "./PaneSplitter.svelte";
     export let props = {};
 
     // Getters
@@ -205,6 +206,16 @@
                         main={pane === hub.chart}
                     />
                 {/each}
+                {#if layout && layout.grids && layout.grids.length > 1}
+                    {#each layout.grids.slice(1) as grid, idx}
+                        <PaneSplitter
+                            paneIndex={idx}
+                            nextPaneIndex={idx + 1}
+                            {layout}
+                            props={chartProps}
+                        />
+                    {/each}
+                {/if}
                 <Botbar props={chartProps} {layout} />
                 <FloatingToolbar props={chartProps} {layout} />
                 <ScriptSettingsModal props={chartProps} {layout} />

@@ -283,6 +283,28 @@ class DataHub {
 
     }
 
+    isVisualOnlyProp(key) {
+        if (!key || typeof key !== 'string') return false
+        const lower = key.toLowerCase()
+        return (
+            lower.includes('color') ||
+            lower.includes('colour') ||
+            lower === 'width' ||
+            lower === 'linewidth' ||
+            lower === 'linestyle' ||
+            lower === 'style' ||
+            lower === 'opacity' ||
+            lower === 'display' ||
+            lower === 'visible' ||
+            lower === 'show' ||
+            lower === 'precision' ||
+            lower === 'prec' ||
+            lower === 'zindex' ||
+            lower === 'title' ||
+            lower === 'name'
+        )
+    }
+
     async updateScriptOrOverlay(paneId, ov, newProps, newSettings) {
         let pane = this.panes()[paneId]
         if (!pane) return
@@ -293,6 +315,18 @@ class DataHub {
             script = (pane.scripts || []).find(s => s.uuid === ov.prod || s.id === ov.prod)
         } else {
             script = (pane.scripts || []).find(s => s.uuid === ov.uuid || s.type === ov.type)
+        }
+
+        // Check if any non-visual calculation prop actually changed
+        let calcChanged = false
+        if (newProps) {
+            for (let k in newProps) {
+                let currentVal = script ? script.props?.[k] : ov.props?.[k]
+                if (currentVal !== newProps[k] && !this.isVisualOnlyProp(k)) {
+                    calcChanged = true
+                    break
+                }
+            }
         }
 
         if (script) {
@@ -308,11 +342,27 @@ class DataHub {
             ov.settings = Object.assign(ov.settings || {}, newSettings)
         }
 
-        if (wasScript) {
-            await this.se.uploadAndExec()
+        // Synchronize visual props to any overlays produced by this script
+        if (script) {
+            let prodId = ov.prod || script.uuid || script.id
+            for (let o of (pane.overlays || [])) {
+                if (o.prod === prodId || o.uuid === prodId || o.type === script.type) {
+                    o.props = Object.assign(o.props || {}, newProps)
+                    if (newSettings) {
+                        o.settings = Object.assign(o.settings || {}, newSettings)
+                    }
+                }
+            }
         }
-        this.events.emitSpec('chart', 'update-layout')
-        this.events.emitSpec('chart', 'full-update')
+
+        if (wasScript && calcChanged) {
+            await this.se.uploadAndExec()
+            this.events.emitSpec('chart', 'full-update')
+        } else {
+            this.events.emit('update-grid')
+            this.events.emitSpec('chart', 'update-layout')
+            this.events.emit('update-legend')
+        }
     }
 
     async deleteScriptOrOverlay(paneId, ov) {

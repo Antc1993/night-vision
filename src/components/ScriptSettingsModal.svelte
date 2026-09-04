@@ -36,6 +36,10 @@
     events.on("open-script-settings", onOpenSettings);
 
     onDestroy(() => {
+        if (liveUpdateTimer) {
+            clearTimeout(liveUpdateTimer);
+            liveUpdateTimer = null;
+        }
         events.off("open-script-settings");
         window.removeEventListener("mousemove", onModalMouseMove);
         window.removeEventListener("mouseup", onModalMouseUp);
@@ -102,7 +106,24 @@
         open = true;
     }
 
-    function emitLiveUpdate() {
+    let liveUpdateTimer = null;
+
+    function emitLiveUpdate(immediate = false) {
+        if (liveUpdateTimer) {
+            clearTimeout(liveUpdateTimer);
+            liveUpdateTimer = null;
+        }
+        if (immediate === true) {
+            doEmitLiveUpdate();
+        } else {
+            liveUpdateTimer = setTimeout(() => {
+                liveUpdateTimer = null;
+                doEmitLiveUpdate();
+            }, 60);
+        }
+    }
+
+    function doEmitLiveUpdate() {
         events.emitSpec("hub", "update-script-props", {
             paneId: paneId,
             ov: ov,
@@ -112,15 +133,19 @@
     }
 
     function onAccept() {
-        emitLiveUpdate();
+        emitLiveUpdate(true);
         open = false;
     }
 
     function onCancel() {
+        if (liveUpdateTimer) {
+            clearTimeout(liveUpdateTimer);
+            liveUpdateTimer = null;
+        }
         if (originalSnapshot) {
             editingProps = JSON.parse(JSON.stringify(originalSnapshot.props));
             editingSettings = JSON.parse(JSON.stringify(originalSnapshot.settings));
-            emitLiveUpdate();
+            doEmitLiveUpdate();
         }
         open = false;
     }
@@ -132,7 +157,7 @@
         editingSettings.precision = undefined;
         editingSettings.zIndex = 0;
         editingSettings.display = true;
-        emitLiveUpdate();
+        emitLiveUpdate(true);
     }
 
     // Modal drag handlers
@@ -301,12 +326,14 @@
                                                 class="tv-color-picker"
                                                 value={toColorPickerHex(editingProps[key])}
                                                 on:input={(e) => onColorPickerChange(key, e.target.value)}
+                                                on:change={(e) => { onColorPickerChange(key, e.target.value); emitLiveUpdate(true); }}
                                             />
                                             <input
                                                 type="text"
                                                 class="tv-input tv-input-color-hex"
                                                 bind:value={editingProps[key]}
-                                                on:input={emitLiveUpdate}
+                                                on:input={() => emitLiveUpdate(false)}
+                                                on:change={() => emitLiveUpdate(true)}
                                             />
                                         </div>
                                     {:else if type === "boolean"}
@@ -394,12 +421,14 @@
                                     class="tv-color-picker"
                                     value={toColorPickerHex(editingProps.color)}
                                     on:input={(e) => onColorPickerChange('color', e.target.value)}
+                                    on:change={(e) => { onColorPickerChange('color', e.target.value); emitLiveUpdate(true); }}
                                 />
                                 <input
                                     type="text"
                                     class="tv-input tv-input-color-hex"
                                     bind:value={editingProps.color}
-                                    on:input={emitLiveUpdate}
+                                    on:input={() => emitLiveUpdate(false)}
+                                    on:change={() => emitLiveUpdate(true)}
                                 />
                             </div>
                         </div>
@@ -587,6 +616,21 @@
         min-height: 180px;
         max-height: 380px;
         overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #363c4e transparent;
+    }
+    .tv-modal-body::-webkit-scrollbar {
+        width: 6px;
+    }
+    .tv-modal-body::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .tv-modal-body::-webkit-scrollbar-thumb {
+        background-color: #363c4e;
+        border-radius: 4px;
+    }
+    .tv-modal-body::-webkit-scrollbar-thumb:hover {
+        background-color: #505668;
     }
 
     .tv-inputs-container,
