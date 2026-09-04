@@ -318,9 +318,8 @@ export default function Scale(id, src, specs) {
 
     ;ls ? gridYLog() : gridY()
 
-    // Indices of the overlays using this scale (ovIdxs).
-    // Needed when the final layout is built
-    // (see overlayEnv)
+    self.log = ls
+    self.id = id
     self.scaleSpecs = {
         id: id,
         log: src.log,

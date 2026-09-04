@@ -14,7 +14,8 @@ const DEFAULT_TOOLS = [
     { name: 'FibonacciRetracementTool', type: 'FibonacciRetracementTool' },
     { name: 'MeasureTool', type: 'MeasureTool' },
     { name: 'TextTool', type: 'TextTool' },
-    { name: 'PositionTool', type: 'PositionTool' }
+    { name: 'PositionTool', type: 'PositionTool' },
+    { name: 'RangeTool', type: 'RangeTool' }
 ]
 
 class DataHub {
@@ -38,6 +39,43 @@ class DataHub {
         events.on('hub:delete-pane', this.onDeletePane.bind(this))
         events.on('hub:maximize-pane', this.onMaximizePane.bind(this))
         events.on('hub:collapse-pane', this.onCollapsePane.bind(this))
+    }
+
+    isToolType(type) {
+        if (!type) return false
+        return type.endsWith('Tool') || DEFAULT_TOOLS.some(t => t.type === type)
+    }
+
+    cleanupEmptyPanes() {
+        if (!this.data || !this.data.panes || this.data.panes.length <= 1) return false
+        let removed = false
+
+        for (let i = this.data.panes.length - 1; i >= 0; i--) {
+            let pane = this.data.panes[i]
+            // Never delete the main chart pane
+            if (pane === this.chart || pane.overlays?.some(o => o.main)) continue
+
+            // Check if there are any non-tool overlays or scripts in this pane
+            let nonToolOvs = (pane.overlays || []).filter(o => !this.isToolType(o.type))
+            let scriptsCount = (pane.scripts || []).length
+
+            if (nonToolOvs.length === 0 && scriptsCount === 0) {
+                this.data.panes.splice(i, 1)
+                removed = true
+            }
+        }
+
+        if (this.data.panes.length === 1) {
+            delete this.data.panes[0].settings?.height
+            delete this.data.panes[0].settings?.__maximized
+            delete this.data.panes[0].settings?.__collapsed
+        }
+
+        if (removed) {
+            this.detectMain()
+        }
+
+        return removed
     }
 
     init(data) {
@@ -87,7 +125,7 @@ class DataHub {
                         type: tool.type,
                         data: [],
                         dataExt: {},
-                        settings: { zIndex: 10 },
+                        settings: { zIndex: 10, showLegend: false, noLegend: true },
                         props: {},
                         uuid: Utils.uuid3()
                     })
@@ -292,22 +330,15 @@ class DataHub {
                 pane.scripts.splice(scriptIdx, 1)
                 wasScript = true
             }
-            pane.overlays = (pane.overlays || []).filter(o => o.uuid !== ov.uuid && o.id !== ov.id)
+            pane.overlays = (pane.overlays || []).filter(o => o.uuid !== ov.uuid && (ov.id === undefined || o.id !== ov.id))
         }
 
-        if (paneId > 0 && pane !== this.chart) {
-            let nonToolOvs = pane.overlays.filter(o => !DEFAULT_TOOLS.some(t => t.type === o.type))
-            if (nonToolOvs.length === 0 && (!pane.scripts || pane.scripts.length === 0)) {
-                let idx = this.data.panes.indexOf(pane)
-                if (idx !== -1) {
-                    this.data.panes.splice(idx, 1)
-                }
-            }
-        }
+        this.cleanupEmptyPanes()
 
         if (wasScript) {
             await this.se.uploadAndExec()
         }
+        this.detectMain()
         this.events.emitSpec('chart', 'full-update')
     }
 
@@ -356,7 +387,10 @@ class DataHub {
             }
         }
 
+        this.cleanupEmptyPanes()
+
         await this.se.uploadAndExec()
+        this.detectMain()
         this.events.emitSpec('chart', 'full-update')
     }
 
@@ -454,7 +488,16 @@ class DataHub {
         if (paneId < 0 || paneId >= panes.length) return
         if (panes.length <= 1) return
 
+        let pane = panes[paneId]
+        if (pane === this.chart || pane.overlays?.some(o => o.main)) return
+
         panes.splice(paneId, 1)
+
+        if (panes.length === 1) {
+            delete panes[0].settings?.height
+            delete panes[0].settings?.__maximized
+            delete panes[0].settings?.__collapsed
+        }
 
         this.detectMain()
         this.events.emitSpec('chart', 'full-update')

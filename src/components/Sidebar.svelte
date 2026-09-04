@@ -232,13 +232,14 @@ function calcZoom(event) {
 // date
 function calcRange(diff1 = 1, diff2 = 1) {
 
-    let z = zoom / drug.z
+    let isLog = !!(scale?.log || scale?.scaleSpecs?.log || layout?.settings?.logScale)
+    let z = zoom / (drug?.z || 1)
     let zk = (1 / z - 1) / 2
 
-    let range = yRange.slice()
+    let range = yRange ? yRange.slice() : [scale?.$hi || 1, scale?.$lo || 0]
     let delta = range[0] - range[1]
 
-    if (!scale.log) {
+    if (!isLog) {
         let hi = range[0] + delta * zk * diff1
         let lo = range[1] - delta * zk * diff2
         if (hi > lo && isFinite(hi) && isFinite(lo)) {
@@ -247,15 +248,18 @@ function calcRange(diff1 = 1, diff2 = 1) {
         }
     } else {
 
-        let px_mid = layout.height / 2
+        let px_mid = (layout.height || 300) / 2
         let new_hi = px_mid - px_mid * (1 / z)
         let new_lo = px_mid + px_mid * (1 / z)
 
-        if (drug.A && isFinite(drug.A) && drug.A !== 0) {
-            let f = y => math.exp((y - drug.B) / drug.A)
+        let A = drug?.A || scale?.A
+        let B = drug?.B || scale?.B
+
+        if (A && isFinite(A) && A !== 0) {
+            let f = y => math.exp((y - B) / A)
             let hi = f(new_hi)
             let lo = f(new_lo)
-            if (hi > lo && hi > 0 && lo > 0 && isFinite(hi) && isFinite(lo)) {
+            if (hi > lo && isFinite(hi) && isFinite(lo)) {
                 range[0] = hi
                 range[1] = lo
             }

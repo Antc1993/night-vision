@@ -1,6 +1,7 @@
 <script>
     import { onDestroy } from 'svelte'
     import Events from '../core/events.js'
+    import DataHub from '../core/dataHub.js'
 
     export let id = 0 // Pane/grid id
     export let props = {}
@@ -9,6 +10,7 @@
     export let scale = null
 
     let events = Events.instance(props.id)
+    let hub = DataHub.instance(props.id)
 
     let isAuto = true
     let isLog = false
@@ -34,14 +36,16 @@
         e.stopPropagation()
         isAuto = !isAuto
         let currentScale = scale || (layout?.scales && (layout.scales[layout.scaleIndex] || Object.values(layout.scales)[0]))
+        let scaleId = currentScale?.scaleSpecs?.id || currentScale?.id || 'A'
         let range = undefined
-        if (!isAuto && currentScale && currentScale.$hi !== undefined && currentScale.$lo !== undefined) {
+        if (!isAuto && currentScale && isFinite(currentScale.$hi) && isFinite(currentScale.$lo) && currentScale.$hi > currentScale.$lo) {
             range = [currentScale.$hi, currentScale.$lo]
         }
         events.emit('sidebar-transform', {
             gridId: id,
-            scaleId: currentScale?.scaleSpecs?.id || 'A',
+            scaleId: scaleId,
             auto: isAuto,
+            zoom: 1.0,
             range: range,
             updateLayout: true
         })
@@ -51,12 +55,19 @@
     function toggleLog(e) {
         e.stopPropagation()
         isLog = !isLog
+        let pane = hub.panes()[id]
+        if (pane) {
+            pane.settings = pane.settings || {}
+            pane.settings.logScale = isLog
+        }
         if (layout?.settings) {
             layout.settings.logScale = isLog
         }
+        let currentScale = scale || (layout?.scales && (layout.scales[layout.scaleIndex] || Object.values(layout.scales)[0]))
+        let scaleId = currentScale?.scaleSpecs?.id || currentScale?.id || 'A'
         events.emit('sidebar-transform', {
             gridId: id,
-            scaleId: scale?.scaleSpecs?.id,
+            scaleId: scaleId,
             log: isLog,
             updateLayout: true
         })
@@ -97,15 +108,15 @@
     }
 
     .scale-mode-btn {
-        width: 17px;
-        height: 17px;
+        width: 18px;
+        height: 18px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #181c26;
-        border: 1px solid #2d3548;
+        background: #1e222d;
+        border: 1px solid #363c4e;
         border-radius: 3px;
-        color: #787b86;
+        color: #9598a1;
         font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
         font-size: 10px;
         font-weight: 700;
@@ -113,20 +124,26 @@
         padding: 0;
         transition: all 0.15s ease;
         line-height: 1;
-        opacity: 0.85;
+        opacity: 1;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     }
 
     .scale-mode-btn:hover {
-        background: #232a3b;
-        color: #ffffff;
-        border-color: #475569;
-        opacity: 1;
+        background: #2a2e39;
+        color: #f0f3fa;
+        border-color: #4f5966;
     }
 
     .scale-mode-btn.active {
-        background: rgba(41, 98, 255, 0.18);
+        background: #2962ff;
         border-color: #2962ff;
-        color: #3b82f6;
-        opacity: 1;
+        color: #ffffff;
+        box-shadow: 0 1px 4px rgba(41, 98, 255, 0.4);
+    }
+
+    .scale-mode-btn.active:hover {
+        background: #1e53e5;
+        border-color: #1e53e5;
+        color: #ffffff;
     }
 </style>

@@ -39,7 +39,9 @@
     {#if hub.panes()[id]}
         <div class="nvjs-legend" {style}>
             {#each hub.panes()[id].overlays as ov, i}
-                <LegendLine gridId={id} {props} {layout} {ov} />
+                {#if !ov.type?.endsWith('Tool') && ov.settings?.showLegend !== false}
+                    <LegendLine gridId={id} {props} {layout} {ov} />
+                {/if}
             {/each}
         </div>
     {/if}

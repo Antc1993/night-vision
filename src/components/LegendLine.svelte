@@ -235,7 +235,7 @@ function disableLegend() {
     filter: none;
 }*/
 </style>
-{#if !legendFns.noLegend && ov.settings.showLegend !== false && show}
+{#if !ov.type?.endsWith('Tool') && !legendFns.noLegend && ov.settings.showLegend !== false && show}
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <div class="nvjs-legend-line" {style}
     on:mousemove={onMouseMove}
