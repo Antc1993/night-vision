@@ -123,7 +123,7 @@
     </div>
 
     <!-- 2. Lines (Segment, Horizontal, Vertical, Ray) with Flyout Arrow -->
-    <div class="nvjs-tb-item-wrapper">
+    <div class="nvjs-tb-item-wrapper has-arrow">
         <button
             class="nvjs-tb-btn"
             class:active={activeTool === "segment" || activeTool === "horizontal" || activeTool === "vertical" || activeTool === "ray"}
@@ -230,7 +230,7 @@
     </div>
 
     <!-- 6. Position Tool (Long / Short) with Flyout Arrow -->
-    <div class="nvjs-tb-item-wrapper">
+    <div class="nvjs-tb-item-wrapper has-arrow">
         <button
             class="nvjs-tb-btn"
             class:active={activeTool === "long" || activeTool === "short"}
@@ -296,7 +296,7 @@
     <div class="nvjs-tb-divider"></div>
 
     <!-- 6. Delete all tools / TradingView Style Flyout -->
-    <div class="nvjs-tb-item-wrapper">
+    <div class="nvjs-tb-item-wrapper has-arrow">
         <button
             class="nvjs-tb-btn danger"
             class:active={openFlyout === "trash"}
@@ -372,8 +372,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 40px;
+        width: 42px;
         height: 38px;
+    }
+
+    .nvjs-tb-item-wrapper.has-arrow .nvjs-tb-btn svg,
+    .nvjs-tb-item-wrapper:has(.nvjs-tb-arrow-btn) .nvjs-tb-btn svg {
+        transform: translateX(-3px);
     }
 
     .nvjs-tb-btn {
@@ -409,17 +414,18 @@
     .nvjs-tb-arrow-btn {
         position: absolute;
         right: 1px;
-        bottom: 2px;
+        top: 50%;
+        transform: translateY(-50%);
         background: transparent;
         border: none;
         color: #64748b;
         cursor: pointer;
-        padding: 2px;
+        padding: 4px 2px;
         display: flex;
         align-items: center;
         justify-content: center;
         opacity: 0.6;
-        transition: opacity 0.15s;
+        transition: opacity 0.15s, color 0.15s;
     }
 
     .nvjs-tb-arrow-btn:hover,

@@ -70,7 +70,7 @@
 `;
 
     $: dataStyle = `
-    font-size: ${fontSz + (ov.main ? 3 : 2)}px;
+    font-size: ${fontSz + (ov.main ? 3 : 3)}px;
     color: ${props.colors.llValue}
 `;
 
@@ -211,40 +211,42 @@
         {#if ov.main && props.showLogo}
             <div class="nvjs-logo" style={logoStyle}></div>
         {/if}
-        <span class="nvjs-ll-name" bind:this={nRef}>
-            {@html name}
-            {#if ov.main}
-                <span class="king-icon" style={kingStyle}> </span>
-            {/if}
-        </span>
-        {#if display && !hover}
-            <span class="nvjs-ll-data" style={dataStyle}>
-                {#if ov.settings.legendHtml}
-                    {@html ov.settings.legendHtml}
-                {:else if legendHtml && data && data.length}
-                    {@html legendHtml(data, prec, formatter)}
-                {:else if legend && data && data.length}
-                    {#each legend(data, prec) || [] as v, i}
-                        <span class="nvjs-ll-value" style={`color: ${v[1]}`}>
-                            {formatter(v[0])}
-                        </span>
-                    {/each}
-                {:else if data && data.length}
-                    {#each data as v, i}
-                        {#if i > 0}
-                            <!-- filter out time -->
-                            {#if v != null}
-                                <span class="nvjs-ll-value">
-                                    {formatter(v)}
-                                </span>
-                            {:else}
-                                <span class="nvjs-ll-x">x</span>
-                            {/if}
-                        {/if}
-                    {/each}
+        <div class="nvjs-ll-content">
+            <span class="nvjs-ll-name" bind:this={nRef}>
+                {@html name}
+                {#if ov.main}
+                    <span class="king-icon" style={kingStyle}> </span>
                 {/if}
             </span>
-        {/if}
+            {#if display && !hover}
+                <span class="nvjs-ll-data" style={dataStyle}>
+                    {#if ov.settings.legendHtml}
+                        {@html ov.settings.legendHtml}
+                    {:else if legendHtml && data && data.length}
+                        {@html legendHtml(data, prec, formatter)}
+                    {:else if legend && data && data.length}
+                        {#each legend(data, prec) || [] as v, i}
+                            <span class="nvjs-ll-value" style={`color: ${v[1]}`}>
+                                {formatter(v[0])}
+                            </span>
+                        {/each}
+                    {:else if data && data.length}
+                        {#each data as v, i}
+                            {#if i > 0}
+                                <!-- filter out time -->
+                                {#if v != null}
+                                    <span class="nvjs-ll-value">
+                                        {formatter(v)}
+                                    </span>
+                                {:else}
+                                    <span class="nvjs-ll-x">x</span>
+                                {/if}
+                            {/if}
+                        {/each}
+                    {/if}
+                </span>
+            {/if}
+        </div>
         {#if !display && !hover}
             <div class="nvjs-eye" style={eyeStyle}></div>
         {/if}
@@ -272,7 +274,7 @@
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        line-height: 1;
+        line-height: 1.2;
         box-sizing: border-box;
     }
     .nvjs-logo {
@@ -282,20 +284,30 @@
         margin-right: 2px;
         opacity: 0.85;
         display: inline-block;
+        align-self: center;
+    }
+    .nvjs-ll-content {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+        line-height: 1.2;
     }
     .nvjs-ll-name {
         display: inline-flex;
-        align-items: center;
-        line-height: 1;
+        align-items: baseline;
+        line-height: 1.2;
     }
     .nvjs-ll-data {
         font-variant-numeric: tabular-nums;
         display: inline-flex;
-        align-items: center;
-        line-height: 1;
+        align-items: baseline;
+        line-height: 1.2;
     }
     :global(.nvjs-ll-value) {
         margin-left: 3px;
+    }
+    :global(.nvjs-ll-value:first-child) {
+        margin-left: 0;
     }
     :global(.nvjs-ll-x) {
         margin-left: 3px;
@@ -305,6 +317,7 @@
         height: 18px;
         margin-left: 6px;
         display: inline-block;
+        align-self: center;
     }
     .nvjs-eye:hover {
         filter: brightness(1.25);
@@ -316,5 +329,6 @@
         margin-left: 4px;
         margin-right: 2px;
         filter: grayscale();
+        vertical-align: -2px;
     }
 </style>
