@@ -56,19 +56,17 @@
     font-weight: 300;
     color: ${props.colors.textLG};
     background: ${selected ? props.colors.back : props.colors.llBack};
-    border: 1px solid transparent;
+    border: 1px solid ${selected ? props.colors.llSelect : "transparent"};
     margin-right: 30px;
     max-width: ${layout.width - 20}px;
     overflow: visible;
     white-space: nowrap;
     text-overflow: ellipsis;
-    border-color: ${selected ? props.colors.llSelect : "auto"} !important;
 `;
 
     $: styleHover = `
     background: ${props.colors.back};
-    border: 1px solid ${props.colors.grid};
-
+    border-color: ${selected ? props.colors.llSelect : props.colors.grid};
 `;
 
     $: dataStyle = `
@@ -102,7 +100,7 @@
     background-image: url(${icons["king3"]});
     background-size: contain;
     background-repeat: no-repeat;
-    margin-left: ${hover || !display || !data.length ? 7 : 3}px;
+    margin-left: 4px;
 `;
 
     $: boundary = ref ? ref.getBoundingClientRect() : {};
@@ -256,7 +254,6 @@
                 {gridId}
                 {ov}
                 {props}
-                height={boundary.height}
             />
         {/if}
     </div>
@@ -270,6 +267,7 @@
         border-radius: 4px;
         padding: 2px 6px;
         margin-bottom: 2px;
+        min-height: 24px;
         width: fit-content;
         display: inline-flex;
         align-items: center;

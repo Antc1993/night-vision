@@ -9,7 +9,7 @@
     export let gridId; // gridId
     export let ov; // Overlay
     export let props; // General props
-    export let height = 18; // Legend-line height
+    export let height = undefined; // Legend-line height
 
     let events = Events.instance(props.id);
     let hub = DataHub.instance(props.id);
