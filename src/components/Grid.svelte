@@ -105,9 +105,11 @@ function makeLayers() {
 
     let list = hub.panes()[id].overlays || []
     let layers = []
+    meta.resetPane(id)
 
     for (var i = 0; i < list.length; i++) {
         let ov = list[i]
+        if (ov.id === undefined) ov.id = i
 
         // Search for overlay prefab by type
         let prefab = scripts.prefabs[ov.type]
@@ -118,7 +120,7 @@ function makeLayers() {
         l.zIndex = z ?? (ov.main ? 0 : -1)
 
         // Create overlay environment
-        let env = new OverlayEnv(i, ov, layout, props)
+        let env = new OverlayEnv(i, ov, layout, props, id)
 
         l.overlay = prefab.make(env)
         l.env = env

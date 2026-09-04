@@ -45,7 +45,7 @@ const formatCash = Utils.formatCash
 export default class OverlayEnv {
 
     // TODO: auto update on prop/data change
-    constructor(id, ovSrc, layout, props) {
+    constructor(id, ovSrc, layout, props, paneId = undefined) {
 
         let hub = DataHub.instance(props.id)
         let meta = MetaHub.instance(props.id)
@@ -55,6 +55,7 @@ export default class OverlayEnv {
         this.ovSrc = ovSrc
         this.overlay = null // Overlay instance ref
         this.id = id
+        this.paneId = paneId !== undefined ? paneId : (layout?.gridId !== undefined ? layout.gridId : layout?.id)
         this.handlers = {}
 
         this.$core = { hub, meta, scan, events }
@@ -97,8 +98,10 @@ export default class OverlayEnv {
         core.data = overlay.data
         core.view = overlay.dataView
         core.dataExt = overlay.dataExt
-        core.id = overlay.id
-        core.paneId = core.layout.id
+        if (overlay.id === undefined) overlay.id = this.id
+        core.id = overlay.id !== undefined ? overlay.id : this.id
+        let pId = this.paneId !== undefined ? this.paneId : (layout?.gridId !== undefined ? layout.gridId : layout?.id)
+        core.paneId = pId
         // TODO: core.fullLayout = ...
         core.uuid = overlay.uuid
         core.range = props.range
@@ -121,8 +124,9 @@ export default class OverlayEnv {
             this.scaleId :*/
             this.getScaleId(layout)
         let s = layout.scales[this.scaleId]
+        let pId = this.paneId !== undefined ? this.paneId : (layout?.gridId !== undefined ? layout.gridId : layout?.id)
         return layoutFn(
-            Object.assign(obj, layout, s),
+            Object.assign(obj, layout, s, { id: pId, paneId: pId, scaleId: s?.id }),
             range, overlay
         )
     }

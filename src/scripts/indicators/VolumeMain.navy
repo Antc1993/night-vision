@@ -7,7 +7,7 @@
 prop('length', { type: 'integer', def: 20 })
 prop('colorVolUp', { type: 'color', def: '#26a69a55' })
 prop('colorVolDw', { type: 'color', def: '#ef535055' })
-prop('barsHeight', { type: 'number', def: 0.18, step: 0.02 })
+prop('barsHeight', { type: 'number', def: 0.12, step: 0.02 })
 prop('showSMA', { type: 'boolean', def: true })
 prop('colorSMA', { type: 'color', def: '#2962ffaa' })
 prop('zIndex', { type: 'integer', def: 0 })
@@ -19,7 +19,7 @@ this.specs = {
     props: {
         colorVolUp: $.colorVolUp,
         colorVolDw: $.colorVolDw,
-        barsHeight: $.barsHeight,
+        barsHeight: $.barsHeight || 0.12,
         showAvgVolume: $.showSMA,
         avgVolumeSMA: $.length,
         colorAvgVol: $.colorSMA

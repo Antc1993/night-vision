@@ -50,10 +50,19 @@ class MetaHub {
 
     }
 
+    // Reset meta for a specific grid pane before re-extracting
+    resetPane(gridId) {
+        if (this.legendFns[gridId]) this.legendFns[gridId] = []
+        if (this.yRangeFns[gridId]) this.yRangeFns[gridId] = []
+        if (this.preSamplers[gridId]) this.preSamplers[gridId] = []
+        if (this.valueTrackers[gridId]) this.valueTrackers[gridId] = []
+    }
+
     // Extract meta functions from overlay
     exctractFrom(overlay) {
         let gridId = overlay.gridId()
         let id = overlay.id()
+        if (gridId === undefined || id === undefined) return
 
         // yRange functions
         var yrfs = this.yRangeFns[gridId] || []

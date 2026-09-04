@@ -77,8 +77,14 @@ export default function Scale(id, src, specs) {
         var hi = -Infinity, lo = Infinity
         for (var ov of ovs) {
             if (ov.settings.display === false) continue
+
+            // If this is a volume overlay on the main pane, it should never affect the main price scale
+            let isMain = (gridId === 0 || gridId === (hub.mainPaneId ?? 0))
+            let isVol = ov.type === 'Volume' || ov.type === 'VolumeMain' || ov.type === 'VolumeDelta'
+            if (isMain && isVol) continue
+
             let yfn = (meta.yRangeFns[gridId] || [])[ov.id]
-            let yfnStatic = prefabs[ov.type].static.yRange 
+            let yfnStatic = prefabs[ov.type]?.static?.yRange 
             if (yfnStatic) {
                 yfn = { 
                     exec: yfnStatic,
@@ -104,11 +110,11 @@ export default function Scale(id, src, specs) {
             if (yfn) {
                 // Check if result is 'null', then this overlay
                 // should not affect the range at all
-                var yfnResult = yfn.exec(data, h, l)
+                var yfnResult = yfn.exec(data, h, l, ov, gridId)
                 if (yfnResult) {
                     var [h, l, exp] = yfnResult
                 } else {
-                    var [h, l] = [hi, lo]
+                    var [h, l] = [-Infinity, Infinity]
                 }
             }
 

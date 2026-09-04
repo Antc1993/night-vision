@@ -14,7 +14,7 @@ prop('currencySymbol', { type: 'string', def: '' })
 prop('showAvgVolume', { type: 'boolean', def: true })
 prop('avgVolumeSMA', { type: 'number', def: 20 })
 prop('colorAvgVol', { type: 'color', def: '#2962ff' })
-prop('barsHeight', { type: 'number', def: 0.2, step: 0.05 })
+prop('barsHeight', { type: 'number', def: 0.12, step: 0.02 })
 prop('precision', { type: 'number', def: 2 })
 
 // Draw call
@@ -30,7 +30,7 @@ draw(ctx) {
     const halfW = Math.floor(w / 2)
     const baseY = layout.height
 
-    const isMainPane = $core.paneId === 0
+    const isMainPane = !!(layout?.main || !layout?.mainGrid || $core.paneId === 0 || $core.paneId === ($core.hub?.mainPaneId ?? 0))
     let maxV = 0
     for (let i = view.i1, n = view.i2; i <= n; i++) {
         let p = data[i]
@@ -38,7 +38,7 @@ draw(ctx) {
     }
     if (maxV === 0) maxV = 1
 
-    const scaleH = isMainPane ? (baseY * ($props.barsHeight || 0.2)) : (baseY * 0.85)
+    const scaleH = isMainPane ? (baseY * ($props.barsHeight || 0.12)) : (baseY * 0.85)
 
     let upBars = []
     let dwBars = []
@@ -113,13 +113,12 @@ draw(ctx) {
     }
 }
 
-// Custom y-range: only scale in sub-panel, return null in main pane
-yRange(data, hi, lo) {
-    if ($core.paneId === 0) return null
+// Custom y-range: used when Volume is in an offchart pane
+static yRange(data) {
     if (!data || !data.length) return null
     let max = 0
     for (let i = 0; i < data.length; i++) {
-        let v = data[i][1] || 0
+        let v = data[i] && data[i][1] ? data[i][1] : 0
         if (v > max) max = v
     }
     return [max * 1.15, 0]

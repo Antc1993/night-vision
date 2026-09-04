@@ -53,16 +53,8 @@ makeDelta(bars) {
     return delta
 }
 
-// Custom y-range
-yRange(data, hi, lo) {
-    // Remove this overlay for yRange calculation
-    // if it's not the main overlay of the pane
-    if ($core.id !== 0) {
-        return null
-    } else {
-        return [hi, lo, false]
-    }
-}
+// Custom y-range: only scale in sub-panel, return null in main pane
+static yRange(data, hi, lo) => null
 
 // Legend, defined as pairs [value, color]
 legendHtml(x) {

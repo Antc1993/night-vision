@@ -332,7 +332,12 @@ function GridMaker(id, specs, mainGrid = null) {
     // Merge current selected scale with x-axis variables
     function mergeScale() {
         let sb = self.sb // save scale pair
-        Object.assign(self, self.scales[self.scaleIndex])
+        let scale = self.scales[self.scaleIndex]
+        let gridId = self.id
+        Object.assign(self, scale)
+        self.scaleId = scale?.id
+        self.id = gridId
+        self.gridId = gridId
         self.sb = sb
 
         // If there are no overlays/scales
@@ -358,8 +363,11 @@ function GridMaker(id, specs, mainGrid = null) {
             self.settings = settings // Grid params
             self.main = !mainGrid // Main grid or not
             self.id = id // Grid Id
+            self.gridId = id
 
             mergeScale() // Merge selected scale
+            self.id = id
+            self.gridId = id
 
             // Here we add some helpful functions for
             // plugin creators

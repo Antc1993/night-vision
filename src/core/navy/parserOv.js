@@ -235,8 +235,8 @@ export default class ParserOV {
 
             // Output overlay object
             return {
-                gridId: () => $core.layout.id,
-                id: () => $core.id,
+                gridId: () => $core.paneId !== undefined ? $core.paneId : $core.layout.id,
+                id: () => $core.id !== undefined ? $core.id : env.id,
                 init, destroy, meta, dataFormat,
                 draw, drawSidebar, drawBotbar,
                 yRange, preSampler,
