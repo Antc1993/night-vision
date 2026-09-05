@@ -5,6 +5,7 @@
 [INDICATOR name=SWMA, version=1.0.0]
 
 prop('color', { type: 'color', def: '#e57440' })
+prop('lineWidth', { type: 'integer', def: 1 })
 prop('prec', { type: 'integer', def: autoPrec() })
 prop('zIndex', { type: 'integer', def: 0 })
 
@@ -12,6 +13,7 @@ this.specs = {
     name: `SWMA`,
     props: {
         color: $props.color,
+        lineWidth: $props.lineWidth
     },
     settings: {
         precision: $props.prec,

@@ -6,13 +6,15 @@
 
 prop('length', { type: 'integer', def: 11 })
 prop('color', { type: 'color', def: '#bcc427ee' })
+prop('lineWidth', { type: 'integer', def: 1 })
 prop('prec', { type: 'integer', def: autoPrec() })
 prop('zIndex', { type: 'integer', def: 0 })
 
 this.specs = {
     name: `MOM ${$props.length}`,
     props: {
-        color: $props.color
+        color: $props.color,
+        lineWidth: $props.lineWidth
     },
     settings: {
         precision: $props.prec,

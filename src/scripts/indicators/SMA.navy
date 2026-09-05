@@ -6,6 +6,7 @@
 
 prop('length', { type: 'integer', def: 12 })
 prop('color', { type: 'color', def: '#d1385c' })
+prop('lineWidth', { type: 'integer', def: 1 })
 prop('prec', { type: 'integer', def: autoPrec() })
 prop('zIndex', { type: 'integer', def: 0 })
 
@@ -13,6 +14,7 @@ this.specs = {
     name: `SMA ${$props.length}`,
     props: {
         color: $props.color,
+        lineWidth: $props.lineWidth
     },
     settings: {
         precision: $props.prec,

@@ -55,6 +55,8 @@ class Scripts {
                     name: ov.tagProps.name,
                     author: ov.tagProps.author,
                     version: ov.tagProps.version,
+                    desc: ov.desc || ov.tagProps.desc || "",
+                    tagProps: ov.tagProps,
                     ctx: ov.tagProps.ctx || 'Canvas',
                     make: ov.prefab,
                     static: ov.static,
@@ -66,6 +68,8 @@ class Scripts {
                     name: ind.tagProps.name,
                     author: ind.tagProps.author,
                     version: ind.tagProps.version,
+                    desc: ind.desc || ind.tagProps.desc || "",
+                    tagProps: ind.tagProps,
                     code: {
                         init: ind.init,
                         update: ind.update,
@@ -75,6 +79,24 @@ class Scripts {
                 }
             }
         }
+    }
+
+    async add(src) {
+        if (!src) return;
+        let srcs = Array.isArray(src) ? src : [src];
+        this.srcLib.push(...srcs);
+        this.parse();
+        this.ww.exec('upload-scripts', {
+            prefabs: Object.keys(this.prefabs).reduce((a, k) => {
+                a[k] = {
+                    name: this.prefabs[k].name,
+                    author: this.prefabs[k].author,
+                    version: this.prefabs[k].version,
+                }
+                return a
+            }, {}),
+            iScripts: this.iScripts
+        });
     }
 
     getSchema(type) {

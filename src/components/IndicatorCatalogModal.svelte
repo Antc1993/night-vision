@@ -2,17 +2,20 @@
     import { onMount, onDestroy } from "svelte";
     import Events from "../core/events.js";
     import DataHub from "../core/dataHub.js";
+    import Scripts from "../core/scripts.js";
 
     export let props = {};
     export let layout = {};
 
     let events = Events.instance(props.id);
     let hub = DataHub.instance(props.id);
+    let scriptsHub = Scripts.instance(props.id);
 
     let open = false;
     let searchQuery = "";
     let selectedCategory = "all";
     let lastAdded = null;
+    let customIndicators = [];
 
     // Draggable position
     let modalX = 0;
@@ -310,13 +313,24 @@
         }
     ];
 
-    const CATEGORIES = [
+    const BASE_CATEGORIES = [
         { id: "all", label: "Todos" },
         { id: "trend", label: "Medias Móviles / Tendencia" },
         { id: "oscillators", label: "Osciladores" },
         { id: "volatility", label: "Volatilidad" },
         { id: "volume", label: "Volumen" }
     ];
+
+    $: CATEGORIES = customIndicators.length > 0
+        ? [
+            { id: "all", label: "Todos" },
+            { id: "custom", label: `Personalizados (${customIndicators.length})` },
+            { id: "trend", label: "Medias Móviles / Tendencia" },
+            { id: "oscillators", label: "Osciladores" },
+            { id: "volatility", label: "Volatilidad" },
+            { id: "volume", label: "Volumen" }
+          ]
+        : BASE_CATEGORIES;
 
     events.on("open-indicators-modal", onOpen);
 
@@ -326,10 +340,68 @@
         window.removeEventListener("mouseup", onModalMouseUp);
     });
 
+    function refreshCustomIndicators() {
+        if (!scriptsHub) return;
+        const catalogTypes = new Set(CATALOG.map(item => item.type.toLowerCase()));
+        let found = [];
+
+        // 1. Check indicator scripts registered in scriptsHub
+        if (scriptsHub.iScripts) {
+            for (let type in scriptsHub.iScripts) {
+                if (catalogTypes.has(type.toLowerCase())) continue;
+                let info = scriptsHub.iScripts[type];
+                let tag = info.tagProps || {};
+                found.push({
+                    type: type,
+                    name: info.name || type,
+                    category: "custom",
+                    catLabel: "Personalizado",
+                    desc: info.desc || tag.desc || `Indicador personalizado NavyJS (${info.author || "Usuario"}).`,
+                    author: info.author || "",
+                    version: info.version || "1.0.0",
+                    pane: tag.pane || (tag.targetPane === "main" ? "main" : "new"),
+                    isOverlay: false,
+                    isCustom: true
+                });
+            }
+        }
+
+        // 2. Check prefabs for custom overlays (excluding built-in overlays and drawing tools)
+        if (scriptsHub.prefabs) {
+            const internalPrefabs = new Set([
+                "spline", "splines", "range", "band", "histogram", "cloud", "sparse",
+                "candles", "candlesplus", "bars", "heikinashi", "baseline", "area",
+                "applearea", "pricelabels", "trades", "arrowtrades", "hollowcandles"
+            ]);
+            for (let type in scriptsHub.prefabs) {
+                if (catalogTypes.has(type.toLowerCase())) continue;
+                if (internalPrefabs.has(type.toLowerCase())) continue;
+                if (type.endsWith("Tool")) continue;
+                let info = scriptsHub.prefabs[type];
+                let tag = info.tagProps || {};
+                found.push({
+                    type: type,
+                    name: info.name || type,
+                    category: "custom",
+                    catLabel: "Personalizado",
+                    desc: info.desc || tag.desc || `Overlay personalizado NavyJS (${info.author || "Usuario"}).`,
+                    author: info.author || "",
+                    version: info.version || "1.0.0",
+                    pane: tag.pane || (tag.targetPane === "new" ? "new" : "main"),
+                    isOverlay: true,
+                    isCustom: true
+                });
+            }
+        }
+
+        customIndicators = found;
+    }
+
     function onOpen() {
         searchQuery = "";
         selectedCategory = "all";
         lastAdded = null;
+        refreshCustomIndicators();
 
         let chartW = (layout?.width && layout.width > 200 ? layout.width : window.innerWidth) || 800;
         let chartH = (layout?.height && layout.height > 200 ? layout.height : window.innerHeight) || 600;
@@ -357,13 +429,17 @@
         }, 2000);
     }
 
+    // Combine custom indicators (at the top) with built-in catalog
+    $: allIndicators = [...customIndicators, ...CATALOG];
+
     // Filter indicators
-    $: filteredIndicators = CATALOG.filter(item => {
+    $: filteredIndicators = allIndicators.filter(item => {
         const matchesCat = selectedCategory === "all" || item.category === selectedCategory;
         const q = searchQuery.trim().toLowerCase();
         const matchesQuery = !q ||
             item.type.toLowerCase().includes(q) ||
             item.name.toLowerCase().includes(q) ||
+            (item.author && item.author.toLowerCase().includes(q)) ||
             item.desc.toLowerCase().includes(q);
         return matchesCat && matchesQuery;
     });
@@ -464,10 +540,13 @@
                         </div>
 
                         <div class="tv-ind-meta">
-                            <span class="tv-badge-cat">{item.catLabel}</span>
+                            <span class="tv-badge-cat" class:custom={item.isCustom}>{item.catLabel}</span>
                             <span class="tv-badge-pane" class:main={item.pane === "main"}>
                                 {item.pane === "main" ? "Panel Principal" : "Sub-panel"}
                             </span>
+                            {#if item.author}
+                                <span class="tv-badge-author" title="Autor">{item.author}</span>
+                            {/if}
                             <button
                                 class="tv-add-btn"
                                 class:added={lastAdded === item.type}
@@ -704,12 +783,25 @@
     }
 
     .tv-badge-cat {
-        background: #131722;
-        color: #9598a1;
-        border: 1px solid #363c4e;
+        background: rgba(41, 98, 255, 0.15);
+        color: #2962ff;
+        border: 1px solid rgba(41, 98, 255, 0.3);
         padding: 3px 6px;
         border-radius: 4px;
         font-size: 10.5px;
+        white-space: nowrap;
+    }
+    .tv-badge-cat.custom {
+        background: rgba(168, 85, 247, 0.18);
+        color: #c084fc;
+        border: 1px solid rgba(168, 85, 247, 0.35);
+    }
+    .tv-badge-author {
+        font-size: 10.5px;
+        color: #9ca3af;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 3px 6px;
+        border-radius: 4px;
         white-space: nowrap;
     }
 

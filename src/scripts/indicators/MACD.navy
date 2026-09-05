@@ -13,6 +13,7 @@ prop('colorUp', { type: 'Color', def: '#35a776' })
 prop('colorDw', { type: 'Color', def: '#e54150' })
 prop('colorSemiUp', { type: 'Color', def: '#79e0b3' })
 prop('colorSemiDw', { type: 'Color', def: '#ea969e' })
+prop('lineWidth', { type: 'integer', def: 1 })
 prop('prec', { type: 'integer', def: autoPrec() })
 prop('zIndex', { type: 'integer', def: 0 })
 
@@ -25,7 +26,8 @@ this.specs = {
         colorUp: $.colorUp,
         colorDw: $.colorDw,
         colorSemiUp: $.colorSemiUp,
-        colorSemiDw: $.colorSemiDw
+        colorSemiDw: $.colorSemiDw,
+        lineWidth: $.lineWidth
     },
     settings: {
         precision: $props.prec,

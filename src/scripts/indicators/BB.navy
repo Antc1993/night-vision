@@ -8,6 +8,7 @@ prop('length', { type: 'integer', def: 21 })
 prop('stddev', { type: 'number', def: 2 })
 prop('color', { type: 'color', def: '#2cc6c9ab' })
 prop('backColor', { type: 'color', def: '#2cc6c90a' })
+prop('lineWidth', { type: 'integer', def: 1 })
 prop('prec', { type: 'integer', def: autoPrec() })
 prop('zIndex', { type: 'integer', def: 0 })
 
@@ -16,6 +17,7 @@ this.specs = {
     props: {
         color: $props.color,
         backColor: $props.backColor,
+        lineWidth: $props.lineWidth,
     },
     settings: {
         precision: $props.prec,

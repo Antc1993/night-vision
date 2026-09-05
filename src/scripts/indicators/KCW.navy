@@ -8,7 +8,7 @@ prop('length', { type: 'integer', def: 20 })
 prop('mult', { type: 'number', def: 1 })
 prop('trueRange', { type: 'boolean', def: true })
 prop('color', { type: 'color', def: '#4c8dffab' })
-prop('backColor', { type: 'color', def: '#4c8dff0a' })
+prop('lineWidth', { type: 'integer', def: 1 })
 prop('prec', { type: 'integer', def: autoPrec() })
 prop('zIndex', { type: 'integer', def: 0 })
 
@@ -16,7 +16,7 @@ this.specs = {
     name: `KCW ${$props.length} ${$props.mult}`,
     props: {
         color: $props.color,
-        backColor: $props.backColor,
+        lineWidth: $props.lineWidth,
     },
     settings: {
         precision: $props.prec,

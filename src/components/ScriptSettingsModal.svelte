@@ -85,6 +85,11 @@
         editingProps = JSON.parse(JSON.stringify(baseProps));
         editingSettings = JSON.parse(JSON.stringify(Object.assign({}, script?.settings || {}, ov.settings || {})));
 
+        // Ensure lineWidth is available for styling on all line/band/indicator overlays
+        if (!('lineWidth' in editingProps) && !scriptType.toLowerCase().includes('candle') && !scriptType.toLowerCase().includes('bar')) {
+            editingProps.lineWidth = ov.props?.lineWidth || 1;
+        }
+
         // Save original snapshot for revert
         originalSnapshot = {
             props: JSON.parse(JSON.stringify(editingProps)),
@@ -154,9 +159,13 @@
         for (let key in propsSchema) {
             editingProps[key] = propsSchema[key].def;
         }
+        if ('lineWidth' in editingProps) {
+            editingProps.lineWidth = 1;
+        }
         editingSettings.precision = undefined;
         editingSettings.zIndex = 0;
         editingSettings.display = true;
+        editingSettings.showLegend = true;
         emitLiveUpdate(true);
     }
 
@@ -209,7 +218,156 @@
         return "string";
     }
 
+    const INTERNAL_PROPS = new Set([
+        "dataIndex",
+        "ctx",
+        "ctxType",
+        "prod",
+        "uuid",
+        "id",
+        "ovSrc",
+        "dataSubset",
+        "dataView",
+        "name",
+        "type",
+        "visible",
+        "display",
+        "showLegend",
+        "noLegend",
+        "scripts",
+        "overlays",
+        "settings"
+    ]);
+
+    const INPUT_LABELS = {
+        length: "Periodo / Longitud",
+        stddev: "Desviación Estándar",
+        fast: "Periodo Rápido",
+        slow: "Periodo Lento",
+        smooth: "Suavizado",
+        signal: "Señal",
+        paramK: "%K Periodo",
+        paramD: "%D Periodo",
+        upperBand: "Banda Superior",
+        lowerBand: "Banda Inferior",
+        start: "Inicio",
+        step: "Paso",
+        inc: "Incremento",
+        max: "Máximo",
+        maximum: "Máximo",
+        mult: "Multiplicador",
+        offset: "Desplazamiento",
+        sigma: "Sigma",
+        number: "Cantidad",
+        convLength: "Periodo Conversión (Tenkan)",
+        baseLength: "Periodo Base (Kijun)",
+        laggingLength: "Periodo Senkou Span B",
+        displacement: "Desplazamiento",
+        barsHeight: "Altura de Barras",
+        avgVolumeSMA: "Periodo Media de Volumen",
+        trueRange: "Usar Rango Verdadero (ATR)",
+        useTrueRange: "Usar Rango Verdadero (ATR)",
+        long: "Periodo Largo",
+        short: "Periodo Corto",
+        barWidth: "Grosor de Barras"
+    };
+
+    const COLOR_LABELS = {
+        color: "Color de Línea",
+        colorMacd: "Línea MACD",
+        colorSignal: "Línea de Señal",
+        colorUp: "Histograma Alcista",
+        colorDw: "Histograma Bajista",
+        colorSemiUp: "Histograma Alcista Débil",
+        colorSemiDw: "Histograma Bajista Débil",
+        colorVolUp: "Volumen Alcista",
+        colorVolDw: "Volumen Bajista",
+        colorSMA: "Media de Volumen (SMA)",
+        colorAvgVol: "Media de Volumen",
+        kColor: "Línea %K",
+        dColor: "Línea %D",
+        bandColor: "Líneas de Bandas",
+        backColor: "Relleno de Fondo",
+        cloudUpColor: "Nube Alcista",
+        cloudDwColor: "Nube Bajista",
+        convColor: "Línea de Conversión (Tenkan)",
+        baseColor: "Línea Base (Kijun)",
+        laggingColor: "Línea de Retraso (Chikou)",
+        colorPos: "Zona Superior / Alcista",
+        colorNeg: "Zona Inferior / Bajista",
+        colorValue: "Valor de Línea",
+        color1: "Línea Principal",
+        color2: "Línea de Señal",
+        color3: "Línea Secundaria",
+        colors: "Color de Cinta"
+    };
+
+    function isStyleProp(key) {
+        if (!key || typeof key !== "string") return false;
+        if (INTERNAL_PROPS.has(key)) return false;
+        const lower = key.toLowerCase();
+        if (
+            lower === "linewidth" ||
+            lower === "width" ||
+            lower === "barwidth" ||
+            lower === "linestyle" ||
+            lower === "shape" ||
+            lower === "size" ||
+            lower === "showmid" ||
+            lower === "showsma" ||
+            lower === "showavgvolume"
+        ) {
+            return true;
+        }
+        if (lower === "prec" || lower === "precision" || lower === "zindex") {
+            return true;
+        }
+        if (lower.includes("color") || lower.includes("colour") || lower === "colors") {
+            return true;
+        }
+        if (propsSchema[key]?.type?.toLowerCase() === "color") {
+            return true;
+        }
+        const val = editingProps[key];
+        if (typeof val === "string" && (val.startsWith("#") || val.startsWith("rgb(") || val.startsWith("rgba("))) {
+            return true;
+        }
+        return false;
+    }
+
+    function isInputProp(key) {
+        if (!key || typeof key !== "string") return false;
+        if (INTERNAL_PROPS.has(key)) return false;
+        return !isStyleProp(key);
+    }
+
+    function isColorProp(key) {
+        if (!key || typeof key !== "string") return false;
+        if (INTERNAL_PROPS.has(key)) return false;
+        const lower = key.toLowerCase();
+        if (lower.includes("color") || lower.includes("colour") || lower === "colors") return true;
+        if (propsSchema[key]?.type?.toLowerCase() === "color") return true;
+        const val = editingProps[key];
+        if (typeof val === "string" && (val.startsWith("#") || val.startsWith("rgb(") || val.startsWith("rgba("))) {
+            return true;
+        }
+        return false;
+    }
+
+    function getInputLabel(key) {
+        if (propsSchema[key]?.title) return propsSchema[key].title;
+        if (INPUT_LABELS[key]) return INPUT_LABELS[key];
+        return formatPropLabel(key);
+    }
+
+    function getColorLabel(key) {
+        if (propsSchema[key]?.title) return propsSchema[key].title;
+        if (COLOR_LABELS[key]) return COLOR_LABELS[key];
+        return formatPropLabel(key);
+    }
+
     function toColorPickerHex(str) {
+        if (Array.isArray(str)) str = str[0];
         if (!str || typeof str !== "string") return "#2962ff";
         str = str.trim();
         if (str.startsWith("#")) {
@@ -248,14 +406,27 @@
 
     function onColorPickerChange(key, hex6) {
         let current = editingProps[key];
-        let alpha = getAlphaHex(current);
-        editingProps[key] = alpha ? (hex6 + alpha) : hex6;
+        if (Array.isArray(current)) {
+            let alpha = getAlphaHex(current[0]);
+            editingProps[key][0] = alpha ? (hex6 + alpha) : hex6;
+            editingProps[key] = [...editingProps[key]];
+        } else {
+            let alpha = getAlphaHex(current);
+            editingProps[key] = alpha ? (hex6 + alpha) : hex6;
+        }
         emitLiveUpdate();
     }
 
-    $: visiblePropKeys = Object.keys(propsSchema).length > 0
+    $: allVisibleKeys = Object.keys(propsSchema).length > 0
         ? Object.keys(propsSchema)
         : Object.keys(editingProps);
+
+    $: inputKeys = allVisibleKeys.filter(k => isInputProp(k));
+
+    $: colorKeys = Array.from(new Set([
+        ...Object.keys(editingProps).filter(k => isColorProp(k)),
+        ...Object.keys(propsSchema).filter(k => isColorProp(k))
+    ]));
 </script>
 
 {#if open && ov}
@@ -295,19 +466,24 @@
         <div class="tv-modal-body">
             {#if activeTab === "inputs"}
                 <div class="tv-inputs-container">
-                    {#if visiblePropKeys.length === 0}
-                        <div class="tv-empty-msg">Este indicador no tiene entradas configurables.</div>
+                    {#if inputKeys.length === 0}
+                        <div class="tv-empty-msg">
+                            Este indicador no tiene entradas de cálculo configurables.
+                            <div style="font-size: 11px; opacity: 0.7; margin-top: 6px;">
+                                Puedes personalizar sus colores y estilos en la pestaña <strong>Estilo</strong>.
+                            </div>
+                        </div>
                     {:else}
-                        {#each visiblePropKeys as key}
+                        {#each inputKeys as key}
                             {@const type = getPropType(key)}
                             {@const descr = propsSchema[key] || {}}
                             <div class="tv-prop-row">
-                                <span class="tv-prop-label">{descr.title || formatPropLabel(key)}</span>
+                                <span class="tv-prop-label">{getInputLabel(key)}</span>
                                 
                                 <div class="tv-prop-control">
                                     {#if type === "integer" || type === "number"}
                                         <div class="tv-num-stepper">
-                                            <button class="tv-step-btn" on:click={() => stepNumber(key, -(descr.step || 1), descr.min, descr.max, type === "integer")}>−</button>
+                                            <button type="button" class="tv-step-btn" on:click={() => stepNumber(key, -(descr.step || 1), descr.min, descr.max, type === "integer")}>−</button>
                                             <input
                                                 type="number"
                                                 class="tv-input tv-input-num"
@@ -317,24 +493,7 @@
                                                 step={descr.step || 1}
                                                 on:input={emitLiveUpdate}
                                             />
-                                            <button class="tv-step-btn" on:click={() => stepNumber(key, descr.step || 1, descr.min, descr.max, type === "integer")}>+</button>
-                                        </div>
-                                    {:else if type === "color"}
-                                        <div class="tv-color-control">
-                                            <input
-                                                type="color"
-                                                class="tv-color-picker"
-                                                value={toColorPickerHex(editingProps[key])}
-                                                on:input={(e) => onColorPickerChange(key, e.target.value)}
-                                                on:change={(e) => { onColorPickerChange(key, e.target.value); emitLiveUpdate(true); }}
-                                            />
-                                            <input
-                                                type="text"
-                                                class="tv-input tv-input-color-hex"
-                                                bind:value={editingProps[key]}
-                                                on:input={() => emitLiveUpdate(false)}
-                                                on:change={() => emitLiveUpdate(true)}
-                                            />
+                                            <button type="button" class="tv-step-btn" on:click={() => stepNumber(key, descr.step || 1, descr.min, descr.max, type === "integer")}>+</button>
                                         </div>
                                     {:else if type === "boolean"}
                                         <label class="tv-switch-label">
@@ -372,15 +531,104 @@
 
             {:else if activeTab === "style"}
                 <div class="tv-style-container">
+                    <!-- Line Width -->
+                    {#if 'lineWidth' in editingProps || propsSchema.lineWidth}
+                        <div class="tv-prop-row">
+                            <span class="tv-prop-label">Grosor de línea</span>
+                            <div class="tv-width-picker">
+                                {#each [1, 2, 3, 4] as w}
+                                    <button
+                                        type="button"
+                                        class="tv-width-btn"
+                                        class:active={Number(editingProps.lineWidth || 1) === w}
+                                        on:click={() => { editingProps.lineWidth = w; emitLiveUpdate(); }}
+                                        title="{w}px"
+                                    >
+                                        <div class="tv-width-preview" style="height: {w}px;"></div>
+                                    </button>
+                                {/each}
+                            </div>
+                        </div>
+                    {/if}
+
+                    <!-- All Dynamic Color Properties -->
+                    {#each colorKeys as cKey}
+                        <div class="tv-prop-row">
+                            <span class="tv-prop-label">{getColorLabel(cKey)}</span>
+                            <div class="tv-color-control">
+                                <input
+                                    type="color"
+                                    class="tv-color-picker"
+                                    value={toColorPickerHex(editingProps[cKey])}
+                                    on:input={(e) => onColorPickerChange(cKey, e.target.value)}
+                                    on:change={(e) => { onColorPickerChange(cKey, e.target.value); emitLiveUpdate(true); }}
+                                />
+                                {#if Array.isArray(editingProps[cKey])}
+                                    <input
+                                        type="text"
+                                        class="tv-input tv-input-color-hex"
+                                        bind:value={editingProps[cKey][0]}
+                                        on:input={() => emitLiveUpdate(false)}
+                                        on:change={() => emitLiveUpdate(true)}
+                                    />
+                                {:else}
+                                    <input
+                                        type="text"
+                                        class="tv-input tv-input-color-hex"
+                                        bind:value={editingProps[cKey]}
+                                        on:input={() => emitLiveUpdate(false)}
+                                        on:change={() => emitLiveUpdate(true)}
+                                    />
+                                {/if}
+                            </div>
+                        </div>
+                    {/each}
+
+                    <!-- Visual Toggles -->
+                    {#if 'showSMA' in editingProps}
+                        <div class="tv-prop-row">
+                            <span class="tv-prop-label">Media de volumen (SMA)</span>
+                            <label class="tv-switch-label">
+                                <input
+                                    type="checkbox"
+                                    class="tv-checkbox"
+                                    bind:checked={editingProps.showSMA}
+                                    on:change={emitLiveUpdate}
+                                />
+                                <span class="tv-switch-custom"></span>
+                            </label>
+                        </div>
+                    {/if}
+
+                    {#if 'showMid' in editingProps}
+                        <div class="tv-prop-row">
+                            <span class="tv-prop-label">Línea media (Base)</span>
+                            <label class="tv-switch-label">
+                                <input
+                                    type="checkbox"
+                                    class="tv-checkbox"
+                                    bind:checked={editingProps.showMid}
+                                    on:change={emitLiveUpdate}
+                                />
+                                <span class="tv-switch-custom"></span>
+                            </label>
+                        </div>
+                    {/if}
+
                     <!-- Precision setting -->
                     <div class="tv-prop-row">
                         <span class="tv-prop-label">Precisión</span>
                         <select
                             class="tv-select"
-                            bind:value={editingSettings.precision}
-                            on:change={emitLiveUpdate}
+                            value={editingSettings.precision ?? (editingProps.prec !== undefined ? editingProps.prec : undefined)}
+                            on:change={(e) => {
+                                const val = e.target.value === "" ? undefined : Number(e.target.value);
+                                editingSettings.precision = val;
+                                if ('prec' in editingProps) editingProps.prec = val;
+                                emitLiveUpdate();
+                            }}
                         >
-                            <option value={undefined}>Por defecto</option>
+                            <option value="">Por defecto</option>
                             <option value={0}>0</option>
                             <option value={1}>1</option>
                             <option value={2}>2</option>
@@ -393,55 +641,19 @@
                         </select>
                     </div>
 
-                    <!-- Line Width if available in props -->
-                    {#if 'lineWidth' in editingProps}
-                        <div class="tv-prop-row">
-                            <span class="tv-prop-label">Grosor de línea</span>
-                            <div class="tv-width-picker">
-                                {#each [1, 2, 3, 4] as w}
-                                    <button
-                                        class="tv-width-btn"
-                                        class:active={editingProps.lineWidth === w}
-                                        on:click={() => { editingProps.lineWidth = w; emitLiveUpdate(); }}
-                                    >
-                                        <div class="tv-width-preview" style="height: {w}px;"></div>
-                                    </button>
-                                {/each}
-                            </div>
-                        </div>
-                    {/if}
-
-                    <!-- Primary Color if available in props -->
-                    {#if 'color' in editingProps}
-                        <div class="tv-prop-row">
-                            <span class="tv-prop-label">Color principal</span>
-                            <div class="tv-color-control">
-                                <input
-                                    type="color"
-                                    class="tv-color-picker"
-                                    value={toColorPickerHex(editingProps.color)}
-                                    on:input={(e) => onColorPickerChange('color', e.target.value)}
-                                    on:change={(e) => { onColorPickerChange('color', e.target.value); emitLiveUpdate(true); }}
-                                />
-                                <input
-                                    type="text"
-                                    class="tv-input tv-input-color-hex"
-                                    bind:value={editingProps.color}
-                                    on:input={() => emitLiveUpdate(false)}
-                                    on:change={() => emitLiveUpdate(true)}
-                                />
-                            </div>
-                        </div>
-                    {/if}
-
                     <!-- Z-Index layer order -->
                     <div class="tv-prop-row">
                         <span class="tv-prop-label">Capa (z-index)</span>
                         <input
                             type="number"
                             class="tv-input tv-input-num"
-                            bind:value={editingSettings.zIndex}
-                            on:input={emitLiveUpdate}
+                            value={editingSettings.zIndex ?? (editingProps.zIndex || 0)}
+                            on:input={(e) => {
+                                const val = Number(e.target.value);
+                                editingSettings.zIndex = val;
+                                if ('zIndex' in editingProps) editingProps.zIndex = val;
+                                emitLiveUpdate();
+                            }}
                         />
                     </div>
                 </div>

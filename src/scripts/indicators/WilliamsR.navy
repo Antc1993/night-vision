@@ -10,6 +10,7 @@ prop('lowerBand', { type: 'number', def: -80 })
 prop('color', { type: 'color', def: '#0980e8' })
 prop('backColor', { type: 'color', def: '#9b9ba316' })
 prop('bandColor', { type: 'color', def: '#535559' })
+prop('lineWidth', { type: 'integer', def: 1 })
 prop('prec', { type: 'integer', def: autoPrec() })
 prop('zIndex', { type: 'integer', def: 0 })
 
@@ -19,6 +20,7 @@ this.specs = {
         color: $props.color,
         backColor: $props.backColor,
         bandColor: $props.bandColor,
+        lineWidth: $props.lineWidth,
         upperBand: $props.upperBand,
         lowerBand: $props.lowerBand,
     },

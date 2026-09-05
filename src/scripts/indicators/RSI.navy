@@ -6,6 +6,7 @@
 
 prop('length', { type: 'integer', def: 14 })
 prop('color', { type: 'color', def: '#3399ff' })
+prop('lineWidth', { type: 'integer', def: 1 })
 prop('prec', { type: 'integer', def: 2 })
 prop('zIndex', { type: 'integer', def: 0 })
 prop('upperBand', { type: 'integer', def: 70 })
@@ -16,6 +17,7 @@ this.specs = {
     name: 'RSI ' + $props.length,
     props: {
         color: $props.color,
+        lineWidth: $props.lineWidth,
         upperBand: $props.upperBand,
         lowerBand: $props.lowerBand
     },

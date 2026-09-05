@@ -14,6 +14,8 @@ export default class ParserIND {
         this.tagProps = this.parseTagProps(tagProps)
         this.src = src
         this.propsSchema = tools.extractPropsSchema(src)
+        let dsMatch = src.match(/<ds>([\s\S]*?)<\/ds>/)
+        this.desc = dsMatch ? dsMatch[1].trim() : (this.tagProps.desc || "")
 
         this.parseBody()
 
