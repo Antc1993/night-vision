@@ -212,6 +212,9 @@ El orquestador interno `DatafeedManager` aplica automáticamente las siguientes 
 4. **Paginación Infinita Silenciosa**:
    * Escucha `app:$range-update`. Cuando el usuario hace scroll hacia la izquierda y se aproxima a la vela más antigua, solicita el bloque anterior a `getBars()`, antepone las velas con `unshift` y actualiza la escala sin saltos visuales.
 
+5. **Persistencia de Dibujos y Ciclo de Vida de Grilla (`remake-grid`)**:
+   * Al cambiar de timeframe o símbolo (`setTimeframe`, `setSymbol`), la grilla se recrea. Las capas de herramientas de dibujo leen las coordenadas en base a timestamp real (`x2time`). Tras cargar el nuevo histórico, se debe asegurar un `update()` de renderizado para que los dibujos existentes en `dataExt` se proyecten inmediatamente en la nueva escala sin esperar a una interacción de ratón.
+
 ---
 
 ## 6. Arquitectura Recomendada para el Servidor de Datos (CCXT + WebSocket)

@@ -100,7 +100,7 @@ A `.navy` file defines customizable properties and a high-performance Canvas 2D 
 
 ### Complete Template:
 ```navy
-// NavyJS ~ 0.1-lite
+// Navy ~ 0.2-lite
 [OVERLAY name=MyIndicator, ctx=Canvas, author=Antigravity, version=1.0.0]
 
 // 1. Define Customizable Properties
@@ -146,6 +146,18 @@ yRange(hi, lo) => [hi, lo]
 // 4. Optional: Value Legend Display
 legend(x) => [[x[1], $props.lineColor]]
 ```
+
+### 4.1 Reglas Críticas al Escribir Scripts NavyJS (`.navy`)
+1. **Prohibido redeclarar variables con `const` o `let`**:
+   - Todo el código de funciones de un `.navy` es envuelto por el parser en una única función JavaScript mediante `new Function('env', ...)`.
+   - Si declaras dos veces `const layout = $core.layout` o cualquier variable con el mismo nombre dentro del mismo bloque o función, el motor lanzará `SyntaxError: Identifier '...' has already been declared`.
+   - Ese fallo impide que el overlay se registre en `this.prefabs` del gráfico.
+2. **Coordenadas de tiempo y cursor seguras**:
+   - Al interactuar con `$core.cursor`, no uses solamente `cursor.time !== undefined`, pues `cursor.time` puede ser explícitamente `null`.
+   - Usa siempre: `let t = (cursor.time != null && !isNaN(cursor.time)) ? cursor.time : cursor.ti; if ((t == null || isNaN(t)) && layout.x2t) t = layout.x2t(cursor.x)`.
+   - Guardar `null` proyecta los puntos al año 1970 fuera del canvas visible al cambiar de timeframe.
+3. **Coordenada Y segura**:
+   - `cursor.y` puede ser `undefined` en eventos inmediatos. Usa siempre fallback: `const cy = cursor.y !== undefined ? cursor.y : ($core.mouse ? $core.mouse.y : 0)`.
 
 ### Essential `$core` APIs inside `draw(ctx)`:
 - `layout.ti2x(timestamp, index)`: Converts timestamp + bar index to pixel X coordinate.

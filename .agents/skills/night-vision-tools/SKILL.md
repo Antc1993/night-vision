@@ -90,17 +90,28 @@ Cada herramienta consta de 3 capas esenciales:
   })
   ```
 
-### ⚠️ Regla 2: Coordenadas Seguras en `Pin.update()`
-- No asumas que `$core.cursor.time` siempre está definido (por ejemplo, en zonas futuras fuera de las velas).
-- Usa fallback a `ti` o a la función de layout:
+### ⚠️ Regla 2: Coordenadas de Tiempo Seguras y Prevención de Marca Temporal `null`
+- **NUNCA** uses solamente `cursor.time !== undefined`, porque `cursor.time` puede ser explícitamente `null`. Si es `null`, `null !== undefined` es `true` y se guarda `null`.
+- Al cambiar de timeframe o recrear la vista, `layout.time2x(null)` evalúa `null` como `0` (1 de enero de 1970) y proyecta los puntos a millones de píxeles fuera de la pantalla (el dibujo "desaparece").
+- **Patrón obligatorio**:
   ```javascript
-  let cursorTime = this.core.cursor.time !== undefined ? this.core.cursor.time : this.core.cursor.ti
-  if (cursorTime === undefined && layout && layout.x2t) {
-      cursorTime = layout.x2t(this.core.cursor.x)
+  const x2tFn = layout ? (layout.x2time || layout.x2t) : null
+  let t = (cursor.time != null && !isNaN(cursor.time)) ? cursor.time : cursor.ti
+  if ((t == null || isNaN(t)) && x2tFn) {
+      t = x2tFn.call(layout, cx)
   }
   ```
 
-### ⚠️ Regla 3: Persistencia Completa del Texto
+### ⚠️ Regla 3: Coordenadas Y Seguras con Respaldo de Ratón
+- No asumas que `cursor.y` siempre existe (en clicks rápidos o iniciales puede ser `undefined`, arrojando `layout.y2value(undefined) === NaN`).
+- Resuelve siempre `cx` y `cy` con fallback a `mouse`:
+  ```javascript
+  const cx = cursor.x !== undefined ? cursor.x : (mouse.x !== undefined ? mouse.x : 0)
+  const cy = cursor.y !== undefined ? cursor.y : (mouse.y !== undefined ? mouse.y : 0)
+  let $ = layout && layout.y2value ? layout.y2value(cy) : 0
+  ```
+
+### ⚠️ Regla 4: Persistencia Completa del Texto y Propiedades
 - Al actualizar ajustes (`update-settings`), persiste `text` tanto en el objeto en memoria como en `dataExt`:
   ```javascript
   if (text !== undefined) {
@@ -109,7 +120,7 @@ Cada herramienta consta de 3 capas esenciales:
   }
   ```
 
-### ⚠️ Regla 4: Renderizado de Texto Centrado
+### ⚠️ Regla 5: Renderizado de Texto Centrado
 - Calcula siempre el punto medio geométrico `(midX, midY)`.
 - Dibuja un badge de fondo semitransparente con `roundRect` y borde con el color de la figura:
   ```javascript
@@ -131,6 +142,16 @@ Cada herramienta consta de 3 capas esenciales:
   ctx.restore()
   ```
 
+### ⚠️ Regla 6: Cuidado con Redeclaraciones en Scripts Navy (.navy)
+- En archivos `.navy`, las funciones se compilan dinámicamente mediante `new Function(...)` dentro de un mismo scope contenedor.
+- **NUNCA** redeclares variables con `const` o `let` en el mismo ámbito (por ejemplo, declarar dos veces `const layout = $core.layout` dentro de `newPosition()`).
+- Una redeclaración lanza `SyntaxError: Identifier 'layout' has already been declared`, lo cual detiene el parseo de ese overlay y de los que siguen en la lista.
+
+### ⚠️ Regla 7: Limpieza Estricta de Listeners y Evitar Doble Clic ("Segundo punto cae en el primero")
+- Si el segundo punto de un trazo colapsa instantáneamente en el primer punto al hacer clic una sola vez, suele deberse a listeners duplicados de `mousedown` en el `<canvas>`.
+- Al desvincular eventos DOM en `Pointer.destroy()`, siempre asegúrate de usar `this.canvas.removeEventListener(...)` para evitar excepciones de tipo `Illegal invocation`.
+- En componentes que montan y desmontan grids al cambiar de timeframe (`Grid.svelte`, `Canvas.svelte`), destruye explícitamente cualquier instancia previa de `input/pointer` antes de inicializar una nueva.
+
 ---
 
 ## 4. Plantilla para Crear una Nueva Herramienta
@@ -144,6 +165,7 @@ Cada herramienta consta de 3 capas esenciales:
 3. **Crear Overlay en `src/scripts/tools/<MiToolTool>.navy`**:
    - Manejar colección `tools = {}`.
    - Escuchar `$core.uuid + ':tool-<nombre>'`, `$core.uuid + ':update-settings'`, `$core.uuid + ':delete-tool'`.
+   - Usar las fórmulas seguras de `t` y `$` (Reglas 2 y 3).
 4. **Agregar a `DEFAULT_TOOLS` en `src/core/dataHub.js`**:
    - Asegura la auto-inyección en todos los paneles.
 5. **Integrar en `DrawingToolbar.svelte` y `FloatingToolbar.svelte`**:
