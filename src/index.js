@@ -1,7 +1,7 @@
 
 // Library exports
 
-import { NightVision } from './interface.js'
+import { NightVision, BaseDatafeed, DatafeedManager } from './interface.js'
 import DataHub from './core/dataHub.js'
 import MetaHub from './core/metaHub.js'
 import DataScan from './core/dataScanner.js'
@@ -12,7 +12,8 @@ import Utils from './stuff/utils.js'
 import Parser from './core/navy/parser.js'
 
 export {
-    NightVision, DataHub, MetaHub,
-    DataScan, Scripts, Events,
-    Const, Utils, Parser
+    NightVision, BaseDatafeed, DatafeedManager,
+    DataHub, MetaHub, DataScan,
+    Scripts, Events, Const,
+    Utils, Parser
 }

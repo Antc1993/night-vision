@@ -19,9 +19,11 @@ export default class Measure {
             new core.lib.Pin(core, this, 'p2')
         ]
 
-        if (nw) {
+        const isNew = nw || data.isDrawing || false
+        if (isNew) {
             this.pins[1].state = 'tracking'
             this.isDrawing = true
+            this.data.isDrawing = true
         }
     }
 
@@ -80,6 +82,13 @@ export default class Measure {
     }
 
     draw(ctx) {
+        if (this.isDrawing) {
+            const trackingPin = this.pins.find(p => p.state === 'tracking')
+            if (trackingPin) {
+                trackingPin.update()
+            }
+        }
+
         const layout = this.core.layout
         const p1 = this.data.p1
         const p2 = this.data.p2
@@ -238,6 +247,7 @@ export default class Measure {
             if (trackingPin) {
                 trackingPin.mousedown(event)
                 this.isDrawing = false
+                this.data.isDrawing = false
                 this.core.events.emit('scroll-lock', false)
                 this.core.events.emit('update-layout')
                 if (event) {
@@ -247,6 +257,7 @@ export default class Measure {
                 return
             }
             this.isDrawing = false
+            this.data.isDrawing = false
         }
     }
 

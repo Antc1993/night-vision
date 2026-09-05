@@ -11,8 +11,11 @@ let startDrawTool = false
 init() {
     // Restore measures from dataExt
     for (var m of $core.dataExt.measures || []) {
-        measures[m.uuid] = new $lib.Measure($core, m)
+        measures[m.uuid] = new $lib.Measure($core, m, m.isDrawing || false)
         measures[m.uuid].onSelect = measureSelected
+        if (m.isDrawing) {
+            measures[m.uuid].selected = true
+        }
     }
 
     const handleToolMeasure = event => {
@@ -110,15 +113,27 @@ newMeasure() {
         $core.dataExt.measures = []
     }
 
-    let t = $core.cursor.time
-    let $ = $core.layout.y2value($core.cursor.y)
+    const cursor = $core.cursor || {}
+    const mouse = $core.mouse || {}
+    const layout = $core.layout
+
+    const cx = cursor.x !== undefined ? cursor.x : (mouse.x !== undefined ? mouse.x : 0)
+    const cy = cursor.y !== undefined ? cursor.y : (mouse.y !== undefined ? mouse.y : 0)
+
+    const x2tFn = layout ? (layout.x2time || layout.x2t) : null
+    let t = (cursor.time != null && !isNaN(cursor.time)) ? cursor.time : cursor.ti
+    if ((t == null || isNaN(t)) && x2tFn) {
+        t = x2tFn.call(layout, cx)
+    }
+    let $ = layout ? layout.y2value(cy) : 0
     let uuid = $lib.Utils.uuid3()
 
     let m = {
         type: 'measure',
         p1: [t, $],
         p2: [t, $],
-        uuid: uuid
+        uuid: uuid,
+        isDrawing: true
     }
 
     $core.dataExt.measures.push(m)

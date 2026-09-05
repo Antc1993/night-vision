@@ -196,7 +196,7 @@ export default class ParserOV {
 
     // Create a function that returns a new overlay object
     wrapTheCode(code, flags) {
-        return new Function('env', `
+        const fullScript = `
 
             // Setup the environment
             let { $core, $props, $events } = env
@@ -250,6 +250,13 @@ export default class ParserOV {
                 // Generated flags
                 ${flags}
             }
-        `);
+        `
+        try {
+            return new Function('env', fullScript)
+        } catch (e) {
+            console.error(`[ParserOV] Error in overlay "${this.tagProps?.name}":`, e.message)
+            console.error("Full script:", fullScript)
+            throw e
+        }
     }
 }

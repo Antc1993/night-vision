@@ -34,15 +34,18 @@ export default class TrendLine {
         this.pins = [
             new core.lib.Pin(core, this, 'p1')
         ]
+        const isNew = nw || line.isDrawing || false
         if (line.type !== 'horizontal' && line.type !== 'ray' && line.type !== 'horizontal-ray' && line.type !== 'vertical') {
             this.pins.push(new core.lib.Pin(core, this, 'p2'))
-            if (nw) {
+            if (isNew) {
                 this.pins[1].state = 'tracking'
                 this.isDrawing = true
+                this.data.isDrawing = true
             }
-        } else if (nw) {
+        } else if (isNew) {
             // Horizontal line, Vertical line & Horizontal ray are 1-click placed
             this.isDrawing = false
+            this.data.isDrawing = false
             this.pins[0].state = 'settled'
             this.core.events.emit('scroll-lock', false)
             this.onSelect(this.data.uuid)
@@ -50,7 +53,22 @@ export default class TrendLine {
     }
 
     draw(ctx) {
+        if (this.isDrawing) {
+            const trackingPin = this.pins.find(p => p.state === 'tracking')
+            if (trackingPin) {
+                trackingPin.update()
+            }
+        }
+
         this.line.update(this.data.p1, this.data.p2)
+
+        if (this.isDrawing) {
+            const trackingPin = this.pins.find(p => p.state === 'tracking')
+            if (trackingPin && trackingPin.x !== undefined && trackingPin.y !== undefined) {
+                this.line.x2 = trackingPin.x
+                this.line.y2 = trackingPin.y
+            }
+        }
 
         const sett = this.data.settings || {}
         ctx.lineWidth = sett.lineWidth || 1
@@ -143,6 +161,7 @@ export default class TrendLine {
             if (trackingPin) {
                 trackingPin.mousedown(event)
                 this.isDrawing = false
+                this.data.isDrawing = false
                 this.core.events.emit('scroll-lock', false)
                 this.onSelect(this.data.uuid)
                 this.core.events.emit('update-layout')
@@ -153,6 +172,7 @@ export default class TrendLine {
                 return
             }
             this.isDrawing = false
+            this.data.isDrawing = false
         }
 
         if (event && (event.__toolCaptured || this.core.lib.Utils.defaultPrevented(event))) {

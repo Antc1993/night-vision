@@ -47,9 +47,11 @@ export default class FiboRetracement {
             new core.lib.Pin(core, this, 'p2')
         ]
 
-        if (nw) {
+        const isNew = nw || fibo.isDrawing || false
+        if (isNew) {
             this.pins[1].state = 'tracking'
             this.isDrawing = true
+            this.data.isDrawing = true
         }
     }
 
@@ -75,6 +77,13 @@ export default class FiboRetracement {
     }
 
     draw(ctx) {
+        if (this.isDrawing) {
+            const trackingPin = this.pins.find(p => p.state === 'tracking')
+            if (trackingPin) {
+                trackingPin.update()
+            }
+        }
+
         const layout = this.core.layout
         const p1 = this.data.p1
         const p2 = this.data.p2
@@ -223,6 +232,7 @@ export default class FiboRetracement {
             if (trackingPin) {
                 trackingPin.mousedown(event)
                 this.isDrawing = false
+                this.data.isDrawing = false
                 this.core.events.emit('scroll-lock', false)
                 this.onSelect(this.data.uuid)
                 this.core.events.emit('update-layout')
@@ -233,6 +243,7 @@ export default class FiboRetracement {
                 return
             }
             this.isDrawing = false
+            this.data.isDrawing = false
         }
 
         if (event && (event.__toolCaptured || this.core.lib.Utils.defaultPrevented(event))) {

@@ -31,9 +31,11 @@ export default class Rectangle {
             new core.lib.Pin(core, this, 'p3'),
             new core.lib.Pin(core, this, 'p4')
         ]
-        if (nw) {
+        const isNew = nw || rect.isDrawing || false
+        if (isNew) {
             this.pins[1].state = 'tracking'
             this.isDrawing = true
+            this.data.isDrawing = true
         }
 
         this.followX = null
@@ -47,6 +49,13 @@ export default class Rectangle {
     draw(ctx) {
         const layout = this.core.layout
         if (!layout || !this.pins || !this.pins.length) return
+
+        if (this.isDrawing) {
+            const trackingPin = this.pins.find(p => p.state === 'tracking')
+            if (trackingPin) {
+                trackingPin.update()
+            }
+        }
 
         this.update()
         this.updateRect()
@@ -182,6 +191,7 @@ export default class Rectangle {
             if (trackingPin) {
                 trackingPin.mousedown(event)
                 this.isDrawing = false
+                this.data.isDrawing = false
                 this.core.events.emit('scroll-lock', false)
                 this.onSelect(this.data.uuid)
                 this.core.events.emit('update-layout')
@@ -192,6 +202,7 @@ export default class Rectangle {
                 return
             }
             this.isDrawing = false
+            this.data.isDrawing = false
         }
 
         if (event && (event.__toolCaptured || this.core.lib.Utils.defaultPrevented(event))) {

@@ -69,30 +69,49 @@ export default class Pin {
         ctx.strokeStyle = this.COLOR_BR
         ctx.fillStyle = this.COLOR_BACK
         ctx.beginPath()
-        ctx.arc(
-            this.x =  this.core.layout.time2x(this.t),
-            this.y =  this.core.layout.value2y(this.y$),
-            r + 0.5, 0, Math.PI * 2, true)
+
+        let px, py
+        if (this.state === 'tracking' && this.x !== undefined && this.y !== undefined) {
+            px = this.x
+            py = this.y
+        } else {
+            px = this.core.layout.time2x(this.t)
+            py = this.core.layout.value2y(this.y$)
+            if (isNaN(px)) px = this.x || 0
+            if (isNaN(py)) py = this.y || 0
+            this.x = px
+            this.y = py
+        }
+
+        ctx.arc(px, py, r + 0.5, 0, Math.PI * 2, true)
         ctx.fill()
         ctx.stroke()
     }
 
     update() {
         const layout = this.core.layout
-        let cursorTime = this.core.cursor.time !== undefined ? this.core.cursor.time : this.core.cursor.ti
-        const x2timeFn = layout ? (layout.x2time || layout.x2t) : null
-        if (cursorTime === undefined && layout && x2timeFn) {
-            cursorTime = x2timeFn.call(layout, this.core.cursor.x)
-        }
-        let y$ = layout.y2value(this.core.cursor.y)
+        const cursor = this.core.cursor || {}
+        const mouse = this.core.mouse || {}
 
-        this.x = !this.followy ? this.core.cursor.x : this.x
-        this.y = !this.followx ? this.core.cursor.y : this.y
-        this.t = !this.followy ? (cursorTime !== undefined ? cursorTime : this.t) : this.t
+        let cx = cursor.x !== undefined ? cursor.x : (mouse.x !== undefined ? mouse.x : this.x)
+        let cy = cursor.y !== undefined ? cursor.y : (mouse.y !== undefined ? mouse.y : this.y)
+
+        const x2timeFn = layout ? (layout.x2time || layout.x2t) : null
+        let cursorTime = (cursor.time != null && !isNaN(cursor.time)) ? cursor.time : cursor.ti
+        if ((cursorTime == null || isNaN(cursorTime)) && layout && x2timeFn && cx !== undefined) {
+            cursorTime = x2timeFn.call(layout, cx)
+        }
+        let y$ = layout && cy !== undefined ? layout.y2value(cy) : this.y$
+
+        this.x = !this.followy ? (cx !== undefined ? cx : this.x) : this.x
+        this.y = !this.followx ? (cy !== undefined ? cy : this.y) : this.y
+        this.t = !this.followy ? ((cursorTime != null && !isNaN(cursorTime)) ? cursorTime : this.t) : this.t
         this.y$ = !this.followx ? (y$ !== undefined ? y$ : this.y$) : this.y$
 
         // Save current position in dataExt
-        this.data[this.name] = [this.t, this.y$]
+        if (this.data) {
+            this.data[this.name] = [this.t, this.y$]
+        }
     }
 
     mousemove(event) {
@@ -119,6 +138,7 @@ export default class Pin {
 
         switch (this.state) {
             case 'tracking':
+                this.update()
                 this.state = 'settled'
                 if (this.onSettled) this.onSettled()
                 this.core.events.emit('scroll-lock', false)

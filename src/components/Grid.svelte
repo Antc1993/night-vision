@@ -65,8 +65,6 @@ function make(event) {
 
     if (!hub.panes()[id]) return // If not exists
 
-    // console.log(`Grid ${id} ${event || 're-made'}`)
-
     destroyLayers()
 
     layers = makeLayers()
@@ -82,13 +80,18 @@ function make(event) {
             // or just reuse the input instance
             last.ref.attach(input = new Pointer())
         }
+        update()
     })
 }
 
 // Detach inputs from previous "last" renderer
 function detachInputs() {
+    if (input) {
+        input.destroy()
+        input = null
+    }
     for (var rr of renderers) {
-        rr.ref.detach()
+        if (rr.ref) rr.ref.detach()
     }
 }
 

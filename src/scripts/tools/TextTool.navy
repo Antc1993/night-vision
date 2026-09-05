@@ -97,8 +97,17 @@ newText() {
         $core.dataExt.texts = []
     }
 
-    let t = $core.cursor.time
-    let $ = $core.layout.y2value($core.cursor.y)
+    const cursor = $core.cursor || {}
+    const layout = $core.layout
+    const cx = cursor.x !== undefined ? cursor.x : ($core.mouse ? $core.mouse.x : 0)
+    const cy = cursor.y !== undefined ? cursor.y : ($core.mouse ? $core.mouse.y : 0)
+    const x2tFn = layout ? (layout.x2time || layout.x2t) : null
+
+    let t = (cursor.time != null && !isNaN(cursor.time)) ? cursor.time : cursor.ti
+    if ((t == null || isNaN(t)) && x2tFn) {
+        t = x2tFn.call(layout, cx)
+    }
+    let $ = layout && layout.y2value ? layout.y2value(cy) : 0
     let uuid = $lib.Utils.uuid3()
 
     let textData = {

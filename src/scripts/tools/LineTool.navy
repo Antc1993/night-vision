@@ -10,11 +10,12 @@ let startDrawTool = false
 let type = ''
 
 init() {
-
     for (var line of $core.dataExt.lines || []) {
-        console.log(line)
-        lines[line.uuid] = new $lib.TrendLine($core, line)
+        lines[line.uuid] = new $lib.TrendLine($core, line, line.isDrawing || false)
         lines[line.uuid].onSelect = lineSelected
+        if (line.isDrawing) {
+            lines[line.uuid].selected = true
+        }
     }
 
     const handleToolLine = event => {
@@ -109,15 +110,28 @@ newLine() {
         $core.dataExt.lines = []
     }
 
-    let t = $core.cursor.time
-    let $ = $core.layout.y2value($core.cursor.y)
+    const cursor = $core.cursor || {}
+    const mouse = $core.mouse || {}
+    const layout = $core.layout
+
+    const cx = cursor.x !== undefined ? cursor.x : (mouse.x !== undefined ? mouse.x : 0)
+    const cy = cursor.y !== undefined ? cursor.y : (mouse.y !== undefined ? mouse.y : 0)
+
+    const x2tFn = layout ? (layout.x2time || layout.x2t) : null
+    let t = (cursor.time != null && !isNaN(cursor.time)) ? cursor.time : cursor.ti
+    if ((t == null || isNaN(t)) && x2tFn) {
+        t = x2tFn.call(layout, cx)
+    }
+    let $ = layout ? layout.y2value(cy) : 0
     let uuid = $lib.Utils.uuid3()
 
+    let is2Click = (type !== 'horizontal' && type !== 'ray' && type !== 'horizontal-ray' && type !== 'vertical')
     let line = {
         type: type,
         p1: [t, $],
         p2: [t, $],
-        uuid: uuid
+        uuid: uuid,
+        isDrawing: is2Click
     }
 
     $core.dataExt.lines.push(line)
@@ -126,7 +140,7 @@ newLine() {
     lines[uuid].selected = true
 
     $events.emit('tool-started', $core.uuid)
-    if (type !== 'horizontal' && type !== 'ray' && type !== 'horizontal-ray' && type !== 'vertical') {
+    if (is2Click) {
         $events.emit('scroll-lock', true)
     } else {
         $events.emit('scroll-lock', false)

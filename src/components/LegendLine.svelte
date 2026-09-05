@@ -84,16 +84,7 @@
     background-image: url(${icons[state + "-eye"]});
     background-size: contain;
     background-repeat: no-repeat;
-    margin-top: ${(boundary.height - 20) * 0.5 - 3}px;
     margin-bottom: -2px;
-`;
-
-    $: touchBoxStyle = `
-    width: ${boundary.width}px;
-    height: ${boundary.height}px;
-    background: #55f9;
-    top: -1px;
-    left: -2px;
 `;
 
     $: kingStyle = `
@@ -103,8 +94,7 @@
     margin-left: 4px;
 `;
 
-    $: boundary = ref ? ref.getBoundingClientRect() : {};
-    $: nBoundary = nRef ? nRef.getBoundingClientRect() : {};
+    let boundary = {};
     $: style = styleBase + (hover ? styleHover : "");
     $: legendFns = (metaVersion, meta.getLegendFns(gridId, ov.id)) || {};
     $: legend = legendFns.legend;

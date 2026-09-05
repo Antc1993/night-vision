@@ -11,8 +11,11 @@ let startDrawTool = false
 init() {
     // Restore fibos from dataExt
     for (var fibo of $core.dataExt.fibos || []) {
-        fibos[fibo.uuid] = new $lib.FiboRetracement($core, fibo)
+        fibos[fibo.uuid] = new $lib.FiboRetracement($core, fibo, fibo.isDrawing || false)
         fibos[fibo.uuid].onSelect = fiboSelected
+        if (fibo.isDrawing) {
+            fibos[fibo.uuid].selected = true
+        }
     }
 
     const handleToolFibos = event => {
@@ -106,14 +109,26 @@ newFibo() {
         $core.dataExt.fibos = []
     }
 
-    let t = $core.cursor.time
-    let $ = $core.layout.y2value($core.cursor.y)
+    const cursor = $core.cursor || {}
+    const mouse = $core.mouse || {}
+    const layout = $core.layout
+
+    const cx = cursor.x !== undefined ? cursor.x : (mouse.x !== undefined ? mouse.x : 0)
+    const cy = cursor.y !== undefined ? cursor.y : (mouse.y !== undefined ? mouse.y : 0)
+
+    const x2tFn = layout ? (layout.x2time || layout.x2t) : null
+    let t = (cursor.time != null && !isNaN(cursor.time)) ? cursor.time : cursor.ti
+    if ((t == null || isNaN(t)) && x2tFn) {
+        t = x2tFn.call(layout, cx)
+    }
+    let $ = layout ? layout.y2value(cy) : 0
     let uuid = $lib.Utils.uuid3()
 
     let fibo = {
         p1: [t, $],
         p2: [t, $],
-        uuid: uuid
+        uuid: uuid,
+        isDrawing: true
     }
 
     $core.dataExt.fibos.push(fibo)

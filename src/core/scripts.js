@@ -49,34 +49,38 @@ class Scripts {
     parse() {
         this.prefabs = {}
         for (var s of this.srcLib) {
-            let parser = new Parser(s)
-            for (var ov of parser.overlays) {
-                this.prefabs[ov.tagProps.name] = {
-                    name: ov.tagProps.name,
-                    author: ov.tagProps.author,
-                    version: ov.tagProps.version,
-                    desc: ov.desc || ov.tagProps.desc || "",
-                    tagProps: ov.tagProps,
-                    ctx: ov.tagProps.ctx || 'Canvas',
-                    make: ov.prefab,
-                    static: ov.static,
-                    propsSchema: ov.propsSchema || {}
+            try {
+                let parser = new Parser(s)
+                for (var ov of parser.overlays) {
+                    this.prefabs[ov.tagProps.name] = {
+                        name: ov.tagProps.name,
+                        author: ov.tagProps.author,
+                        version: ov.tagProps.version,
+                        desc: ov.desc || ov.tagProps.desc || "",
+                        tagProps: ov.tagProps,
+                        ctx: ov.tagProps.ctx || 'Canvas',
+                        make: ov.prefab,
+                        static: ov.static,
+                        propsSchema: ov.propsSchema || {}
+                    }
                 }
-            }
-            for (var ind of parser.indicators) {
-                this.iScripts[ind.tagProps.name] = {
-                    name: ind.tagProps.name,
-                    author: ind.tagProps.author,
-                    version: ind.tagProps.version,
-                    desc: ind.desc || ind.tagProps.desc || "",
-                    tagProps: ind.tagProps,
-                    code: {
-                        init: ind.init,
-                        update: ind.update,
-                        post: ind.post
-                    },
-                    propsSchema: ind.propsSchema || {}
+                for (var ind of parser.indicators) {
+                    this.iScripts[ind.tagProps.name] = {
+                        name: ind.tagProps.name,
+                        author: ind.tagProps.author,
+                        version: ind.tagProps.version,
+                        desc: ind.desc || ind.tagProps.desc || "",
+                        tagProps: ind.tagProps,
+                        code: {
+                            init: ind.init,
+                            update: ind.update,
+                            post: ind.post
+                        },
+                        propsSchema: ind.propsSchema || {}
+                    }
                 }
+            } catch (e) {
+                console.error('[Scripts.parse] Failed to parse script:', e)
             }
         }
     }

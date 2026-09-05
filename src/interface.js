@@ -9,6 +9,8 @@ import Scripts from './core/scripts.js'
 import Events from './core/events.js'
 import WebWork from './core/se/webWork.js'
 import SeClient from './core/se/seClient.js'
+import DatafeedManager from './core/datafeedManager.js'
+import BaseDatafeed from './adapters/baseDatafeed.js'
 
 import resizeTracker from './stuff/resizeTracker.js'
 
@@ -46,6 +48,12 @@ class NightVision {
         }
 
         this.se.setRefs(this.hub, this.scan)
+
+        // Datafeed adapter integration
+        this.datafeedManager = null
+        if (props.datafeed) {
+            this.setDatafeed(props.datafeed, props.symbol, props.timeframe || props.interval)
+        }
     }
 
     // *** PROPS ***
@@ -182,6 +190,17 @@ class NightVision {
         }
         var [action, id] = (typeof type === 'string' ? type : 'layout').split('-')
         const ev = this.events
+
+        if (type !== 'layout') {
+            const hasOpt = opt && typeof opt === 'object' && Object.keys(opt).length > 0;
+            console.log(
+                `%c[NightVision:update]%c type="${type}"`,
+                'color: #38bdf8; font-weight: bold;',
+                'color: inherit;',
+                hasOpt ? opt : ''
+            );
+        }
+
         switch(action) {
             case 'layout':
                 ev.emitSpec('chart', 'update-layout', opt)
@@ -232,7 +251,7 @@ class NightVision {
     // Scroll on interval forward
     // TODO: keep legend updated, when the cursor is outside
     scroll() {
-        if (this.cursor.locked) return
+        if (this.cursor?.locked || this.meta?.scrollLock) return
         let main = this.hub.mainOv.data
         let last = main[main.length - 1]
         let ib = this.hub.indexBased
@@ -253,13 +272,56 @@ class NightVision {
         return this.hub.addIndicator(name, props, isOverlay, paneId)
     }
 
+    // Attach or change the active datafeed adapter
+    setDatafeed(datafeed, symbol = 'BTC/USDT', timeframe = '1m') {
+        if (this.datafeedManager && this.datafeedManager.datafeed === datafeed) {
+            this.datafeedManager.setSymbol(symbol, timeframe)
+            return
+        }
+        if (this.datafeedManager) {
+            this.datafeedManager.destroy()
+            this.datafeedManager = null
+        }
+        if (datafeed) {
+            this.datafeedManager = new DatafeedManager(this, datafeed, {
+                symbol: symbol,
+                timeframe: timeframe
+            })
+        }
+    }
+
+    // Current datafeed instance
+    get datafeed() {
+        return this.datafeedManager?.datafeed || null
+    }
+
+    // Change symbol via datafeed
+    setSymbol(symbol, timeframe = null) {
+        if (this.datafeedManager) {
+            this.datafeedManager.setSymbol(symbol, timeframe)
+        }
+    }
+
+    // Change timeframe/resolution via datafeed
+    setTimeframe(timeframe) {
+        if (this.datafeedManager) {
+            this.datafeedManager.setTimeframe(timeframe)
+        }
+    }
+
     // Should call this to clean-up memory / events
     destroy() {
+        if (this.datafeedManager) {
+            this.datafeedManager.destroy()
+            this.datafeedManager = null
+        }
         this.comp.$destroy()
         this.ww.stop()
     } 
 }
 
 export {
-    NightVision
+    NightVision,
+    BaseDatafeed,
+    DatafeedManager
 }

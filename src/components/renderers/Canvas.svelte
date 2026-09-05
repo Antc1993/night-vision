@@ -51,6 +51,7 @@ onDestroy(() => {
 // Attach an input object
 // Remove input listeners on renderer dostroy() event
 export function attach($input) {
+    detach()
     input = $input
     input.setup({
         id, canvas, ctx, props, layout, rrUpdId, gridUpdId

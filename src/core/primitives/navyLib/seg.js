@@ -15,11 +15,17 @@ export default class Segment {
     update(p1, p2) {
 
         const layout = this.core.layout
+        if (!layout || !p1) return
 
         this.x1 = layout.time2x(p1[0])
         this.y1 = layout.value2y(p1[1])
-        this.x2 = layout.time2x(p2[0])
-        this.y2 = layout.value2y(p2[1])
+        this.x2 = p2 ? layout.time2x(p2[0]) : this.x1
+        this.y2 = p2 ? layout.value2y(p2[1]) : this.y1
+
+        if (isNaN(this.x1)) this.x1 = 0
+        if (isNaN(this.y1)) this.y1 = 0
+        if (isNaN(this.x2)) this.x2 = this.x1
+        if (isNaN(this.y2)) this.y2 = this.y1
     }
 
     // p1[t, $], p2[t, $] (time-price coordinates)

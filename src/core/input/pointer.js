@@ -11,10 +11,13 @@ import math from '../../stuff/math.js'
 import Events from '../events.js'
 import DataHub from '../dataHub.js'
 import MetaHub from '../metaHub.js'
+import Hamster from 'hamsterjs'
+import Hammer from 'hammerjs'
 
 export default class Input {
 
-    async setup(comp) {
+    setup(comp) {
+        if (this.destroyed) return
 
         this.MIN_ZOOM = comp.props.config.MIN_ZOOM
         this.MAX_ZOOM = comp.props.config.MAX_ZOOM
@@ -49,7 +52,7 @@ export default class Input {
         this.events.on(`pointer-${this.gridId}:set-cursor`, this.onSetCursor)
         this.events.on('set-cursor', this.onSetCursor)
 
-        await this.listeners()
+        this.listeners()
         this.mouseEvents('addEventListener')
     }
 
@@ -60,24 +63,26 @@ export default class Input {
                 // Save the handler to remove it later
                 this['_' + e] = this[e].bind(this)
             }
-            this.canvas[cmd](e, this['_' + e])
+            if (this.canvas && this['_' + e]) {
+                this.canvas[cmd](e, this['_' + e])
+            }
         })
     }
 
-    async listeners() {
-        const Hamster = await import('hamsterjs');
-        const Hammer = await import('hammerjs');
+    listeners() {
+        const Hst = Hamster.default || Hamster
+        const Hmr = Hammer.default || Hammer
 
-        this.hm = Hamster.default(this.canvas)
+        this.hm = Hst(this.canvas)
         this.hm.wheel((event, delta) => this.mousezoom(-delta * 50, event))
 
-        let mc = this.mc = new Hammer.Manager(this.canvas)
+        let mc = this.mc = new Hmr.Manager(this.canvas)
         let T = Utils.isMobile ? 10 : 0
-        mc.add(new Hammer.Pan({ threshold: T}))
-        mc.add(new Hammer.Tap())
-        mc.add(new Hammer.Pinch({ threshold: 0}))
+        mc.add(new Hmr.Pan({ threshold: T}))
+        mc.add(new Hmr.Tap())
+        mc.add(new Hmr.Pinch({ threshold: 0}))
         mc.get('pinch').set({ enable: true })
-        if (Utils.isMobile) mc.add(new Hammer.Press())
+        if (Utils.isMobile) mc.add(new Hmr.Press())
 
         mc.on('panstart', event => {
             if (this.meta.scrollLock) return
@@ -175,10 +180,11 @@ export default class Input {
         })
 
         // TODO: Add only once?
-        let add = this.canvas.addEventListener
-        add("gesturestart", this.gesturestart)
-        add("gesturechange", this.gesturechange)
-        add("gestureend", this.gestureend)
+        if (this.canvas) {
+            this.canvas.addEventListener("gesturestart", this.gesturestart)
+            this.canvas.addEventListener("gesturechange", this.gesturechange)
+            this.canvas.addEventListener("gestureend", this.gestureend)
+        }
     }
 
     gesturestart(event) { event.preventDefault() }
@@ -194,7 +200,6 @@ export default class Input {
             x: event.layerX,
             y: event.layerY - 1 // Align with the crosshair
         })
-        this.calcOffset()
         if (this.canvas && !this.drug) {
             this.canvas.style.cursor = 'crosshair'
         }
@@ -497,16 +502,29 @@ export default class Input {
     }
 
     destroy() {
+        this.destroyed = true
         if (this.onSetCursor) {
             this.events.off('set-cursor', this.onSetCursor)
+            this.events.off(`pointer-${this.gridId}:set-cursor`, this.onSetCursor)
         }
-        let rm = this.canvas.removeEventListener
-        rm("gesturestart", this.gesturestart)
-        rm("gesturechange", this.gesturechange)
-        rm("gestureend", this.gestureend)
-        if (this.mc) this.mc.destroy()
-        if (this.hm) this.hm.unwheel()
-        this.mouseEvents('removeEventListener')
+        if (this.canvas) {
+            try {
+                this.canvas.removeEventListener("gesturestart", this.gesturestart)
+                this.canvas.removeEventListener("gesturechange", this.gesturechange)
+                this.canvas.removeEventListener("gestureend", this.gestureend)
+            } catch (e) {}
+            try {
+                this.mouseEvents('removeEventListener')
+            } catch (e) {}
+        }
+        if (this.mc) {
+            try { this.mc.destroy() } catch (e) {}
+            this.mc = null
+        }
+        if (this.hm) {
+            try { this.hm.unwheel() } catch (e) {}
+            this.hm = null
+        }
     }
 
 }

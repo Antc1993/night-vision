@@ -97,12 +97,20 @@ newPosition(type) {
         $core.dataExt.positions = []
     }
 
-    let t = $core.cursor.time !== undefined ? $core.cursor.time : $core.cursor.ti
-    let $ = $core.layout.y2value($core.cursor.y)
+    const cursor = $core.cursor || {}
+    const layout = $core.layout
+    const cx = cursor.x !== undefined ? cursor.x : ($core.mouse ? $core.mouse.x : 0)
+    const x2tFn = layout ? (layout.x2time || layout.x2t) : null
+
+    let t = (cursor.time != null && !isNaN(cursor.time)) ? cursor.time : cursor.ti
+    if ((t == null || isNaN(t)) && x2tFn) {
+        t = x2tFn.call(layout, cx)
+    }
+    const cy = cursor.y !== undefined ? cursor.y : ($core.mouse ? $core.mouse.y : (layout ? layout.height / 2 : 100))
+    let $ = layout && layout.y2value ? layout.y2value(cy) : 0
     let uuid = $lib.Utils.uuid3()
 
-    const layout = $core.layout
-    const cursorY = $core.cursor.y !== undefined ? $core.cursor.y : (layout ? layout.height / 2 : 100)
+    const cursorY = cy
     const entryPrice = layout && layout.y2value ? layout.y2value(cursorY) : $
 
     // Alturas proporcionales al alto visible de la pantalla (en píxeles)
