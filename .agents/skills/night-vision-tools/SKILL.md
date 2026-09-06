@@ -166,6 +166,17 @@ Cada herramienta consta de 3 capas esenciales:
 - Al desvincular eventos DOM en `Pointer.destroy()`, siempre asegúrate de usar `this.canvas.removeEventListener(...)` para evitar excepciones de tipo `Illegal invocation`.
 - En componentes que montan y desmontan grids al cambiar de timeframe (`Grid.svelte`, `Canvas.svelte`), destruye explícitamente cualquier instancia previa de `input/pointer` antes de inicializar una nueva.
 
+### ⚠️ Regla 8: Doble Clic para Abrir Modal de Opciones (`openSettings`)
+- Para permitir abrir el modal de opciones (`FloatingToolbar.svelte`) al hacer doble clic sobre cualquier herramienta (en el mismo punto donde se arrastran las líneas o el cuerpo):
+  1. **Pipeline de Eventos DOM**:
+     - `pointer.js` propaga `'dblclick'` a través de `Grid.svelte` hacia las capas (`layers`) en orden inverso (`layers.slice().reverse()`).
+     - `parserOv.js` define el stub `var dblclick = null` y exporta `dblclick` en el objeto overlay retornado.
+  2. **Detección en Primitivo y Overlay**:
+     - En el primitivo (`navyLib`), en `mousedown(event)` detectar si `event && event.detail === 2`: pasar `isDbl` a `onSelect(uuid, isDbl)` y hacer `return` para evitar iniciar arrastre accidental (`this.isDragging = true`).
+     - Implementar `dblclick(event)` tanto en el primitivo como en el overlay `.navy`: evaluar `collision() || pins.some(p => p.hover())` y llamar a `toolSelected(uuid, true)`.
+  3. **Recepción en `FloatingToolbar.svelte`**:
+     - En `onSelection(data)`: si `data.openSettings === true`, activar `settingsOpen = true`, `activeTab = "style"` y centrar `modalX` / `modalY`.
+
 ---
 
 ## 4. Plantilla para Crear una Nueva Herramienta
