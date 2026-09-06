@@ -143,7 +143,7 @@ newFibo() {
     startDrawTool = false
 }
 
-fiboSelected($uuid) {
+fiboSelected($uuid, openSettings = false) {
     let selectedFibo = null;
     for (var uuid in fibos) {
         fibos[uuid].selected = uuid === $uuid
@@ -161,7 +161,8 @@ fiboSelected($uuid) {
             x: $core.mouse ? $core.mouse.x : 0,
             y: $core.mouse ? $core.mouse.y : 0,
             gridOffset: $core.layout.sbMax[0],
-            paneOffset: $core.layout.offset
+            paneOffset: $core.layout.offset,
+            openSettings: openSettings
         })
     } else {
         $events.emit('selection-event', null)
@@ -190,9 +191,26 @@ removeFibo(uuid) {
 }
 
 propagate(name, data) {
-    const list = (name === 'mousedown' || name === 'click') ? Object.values(fibos).slice().reverse() : Object.values(fibos)
+    const list = (name === 'mousedown' || name === 'click' || name === 'dblclick') ? Object.values(fibos).slice().reverse() : Object.values(fibos)
     for (var fibo of list) {
-        fibo[name](data)
+        if (fibo[name]) fibo[name](data)
+    }
+}
+
+dblclick(event) {
+    if (startDrawTool) return
+    const drawingFibo = Object.values(fibos).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
+    if (drawingFibo) return
+
+    for (var fibo of Object.values(fibos).slice().reverse()) {
+        if (fibo.collision() || (fibo.pins && fibo.pins.some(p => p.hover()))) {
+            fiboSelected(fibo.data.uuid, true)
+            if (event) {
+                event.__toolCaptured = true
+                if (event.stopPropagation) event.stopPropagation()
+            }
+            return
+        }
     }
 }
 
@@ -210,6 +228,16 @@ mousedown(event) {
 
     if (event && (event.__toolCaptured || $lib.Utils.defaultPrevented(event))) {
         return
+    }
+
+    if (event && event.detail === 2) {
+        for (var fibo of Object.values(fibos).slice().reverse()) {
+            if (fibo.collision() || (fibo.pins && fibo.pins.some(p => p.hover()))) {
+                fiboSelected(fibo.data.uuid, true)
+                event.__toolCaptured = true
+                return
+            }
+        }
     }
 
     mouseX = $core.mouse.x

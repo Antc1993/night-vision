@@ -137,7 +137,7 @@ newText() {
     startDrawTool = false
 }
 
-textSelected($uuid) {
+textSelected($uuid, openSettings = false) {
     let selectedText = null
     for (var uuid in texts) {
         texts[uuid].selected = uuid === $uuid
@@ -155,7 +155,8 @@ textSelected($uuid) {
             x: $core.mouse ? $core.mouse.x : 0,
             y: $core.mouse ? $core.mouse.y : 0,
             gridOffset: $core.layout.sbMax[0],
-            paneOffset: $core.layout.offset
+            paneOffset: $core.layout.offset,
+            openSettings: openSettings
         })
     } else {
         $events.emit('selection-event', null)
@@ -170,9 +171,24 @@ removeText(uuid) {
 }
 
 propagate(name, data) {
-    const list = (name === 'mousedown' || name === 'click') ? Object.values(texts).slice().reverse() : Object.values(texts)
+    const list = (name === 'mousedown' || name === 'click' || name === 'dblclick') ? Object.values(texts).slice().reverse() : Object.values(texts)
     for (var t of list) {
-        t[name](data)
+        if (t[name]) t[name](data)
+    }
+}
+
+dblclick(event) {
+    if (startDrawTool) return
+
+    for (var t of Object.values(texts).slice().reverse()) {
+        if (t.collision() || (t.pins && t.pins.some(p => p.hover()))) {
+            textSelected(t.data.uuid, true)
+            if (event) {
+                event.__toolCaptured = true
+                if (event.stopPropagation) event.stopPropagation()
+            }
+            return
+        }
     }
 }
 
@@ -184,6 +200,16 @@ mousedown(event) {
 
     if (event && (event.__toolCaptured || $lib.Utils.defaultPrevented(event))) {
         return
+    }
+
+    if (event && event.detail === 2) {
+        for (var t of Object.values(texts).slice().reverse()) {
+            if (t.collision() || (t.pins && t.pins.some(p => p.hover()))) {
+                textSelected(t.data.uuid, true)
+                event.__toolCaptured = true
+                return
+            }
+        }
     }
 
     mouseX = $core.mouse.x

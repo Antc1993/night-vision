@@ -147,7 +147,7 @@ newMeasure() {
     startDrawTool = false
 }
 
-measureSelected($uuid) {
+measureSelected($uuid, openSettings = false) {
     let selectedMeasure = null;
     for (var uuid in measures) {
         measures[uuid].selected = uuid === $uuid
@@ -165,7 +165,8 @@ measureSelected($uuid) {
             x: $core.mouse ? $core.mouse.x : 0,
             y: $core.mouse ? $core.mouse.y : 0,
             gridOffset: $core.layout.sbMax[0],
-            paneOffset: $core.layout.offset
+            paneOffset: $core.layout.offset,
+            openSettings: openSettings
         })
     } else {
         $events.emit('selection-event', null)

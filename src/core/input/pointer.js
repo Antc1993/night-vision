@@ -57,7 +57,7 @@ export default class Input {
     }
 
     mouseEvents(cmd) {
-        ['mousemove', 'mouseout', 'mouseup', 'mousedown', 'click']
+        ['mousemove', 'mouseout', 'mouseup', 'mousedown', 'click', 'dblclick']
         .forEach(e => {
             if (cmd === 'addEventListener') {
                 // Save the handler to remove it later
@@ -260,6 +260,10 @@ export default class Input {
 
    click(event) {
        this.propagate('click', event)
+   }
+
+   dblclick(event) {
+       this.propagate('dblclick', event)
    }
 
    emitCursorCoord(event, add = {}) {

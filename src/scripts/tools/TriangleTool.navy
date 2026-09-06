@@ -153,7 +153,7 @@ newTriangle() {
     startDrawTool = false
 }
 
-triangleSelected($uuid) {
+triangleSelected($uuid, openSettings = false) {
     let selectedTri = null
     for (var uuid in triangles) {
         triangles[uuid].selected = uuid === $uuid
@@ -172,7 +172,8 @@ triangleSelected($uuid) {
             x: $core.mouse ? $core.mouse.x : 0,
             y: $core.mouse ? $core.mouse.y : 0,
             gridOffset: $core.layout.sbMax[0],
-            paneOffset: $core.layout.offset
+            paneOffset: $core.layout.offset,
+            openSettings: openSettings
         })
     } else {
         $events.emit('selection-event', null)
@@ -187,9 +188,26 @@ removeTriangle(uuid) {
 }
 
 propagate(name, data) {
-    const list = (name === 'mousedown' || name === 'click') ? Object.values(triangles).slice().reverse() : Object.values(triangles)
+    const list = (name === 'mousedown' || name === 'click' || name === 'dblclick') ? Object.values(triangles).slice().reverse() : Object.values(triangles)
     for (var tri of list) {
-        tri[name](data)
+        if (tri[name]) tri[name](data)
+    }
+}
+
+dblclick(event) {
+    if (startDrawTool) return
+    const drawingTri = Object.values(triangles).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
+    if (drawingTri) return
+
+    for (var tri of Object.values(triangles).slice().reverse()) {
+        if (tri.collision() || (tri.pins && tri.pins.some(p => p.hover()))) {
+            triangleSelected(tri.data.uuid, true)
+            if (event) {
+                event.__toolCaptured = true
+                if (event.stopPropagation) event.stopPropagation()
+            }
+            return
+        }
     }
 }
 
@@ -207,6 +225,16 @@ mousedown(event) {
 
     if (event && (event.__toolCaptured || $lib.Utils.defaultPrevented(event))) {
         return
+    }
+
+    if (event && event.detail === 2) {
+        for (var tri of Object.values(triangles).slice().reverse()) {
+            if (tri.collision() || (tri.pins && tri.pins.some(p => p.hover()))) {
+                triangleSelected(tri.data.uuid, true)
+                event.__toolCaptured = true
+                return
+            }
+        }
     }
 
     mouseX = $core.mouse.x

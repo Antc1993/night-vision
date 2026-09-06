@@ -125,8 +125,10 @@ export default class TextAnnotation {
         this.propagate('mousedown', event)
 
         if (this.collision() || pinHovered) {
-            this.onSelect(this.data.uuid)
+            const isDbl = event && event.detail === 2
+            this.onSelect(this.data.uuid, isDbl)
             if (event) event.__toolCaptured = true
+            if (isDbl) return
 
             this.isDragging = true
             this.dragStart = {
@@ -137,6 +139,16 @@ export default class TextAnnotation {
             this.core.events.emit('scroll-lock', true)
             this.core.events.emit('set-cursor', 'grabbing')
             if (event && event.preventDefault) event.preventDefault()
+        }
+    }
+
+    dblclick(event) {
+        if (this.collision() || (this.pins && this.pins.some(p => p.hover()))) {
+            this.onSelect(this.data.uuid, true)
+            if (event) {
+                event.__toolCaptured = true
+                if (event.preventDefault) event.preventDefault()
+            }
         }
     }
 

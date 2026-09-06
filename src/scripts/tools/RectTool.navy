@@ -147,7 +147,7 @@ newRectangle() {
     startDrawTool = false
 }
 
-rectangleselected($uuid) {
+rectangleselected($uuid, openSettings = false) {
  
     let selectedRect = null;
     for (var uuid in rectangles) {
@@ -167,7 +167,8 @@ rectangleselected($uuid) {
             x: $core.mouse ? $core.mouse.x : 0,
             y: $core.mouse ? $core.mouse.y : 0,
             gridOffset: $core.layout.sbMax[0],
-            paneOffset: $core.layout.offset
+            paneOffset: $core.layout.offset,
+            openSettings: openSettings
         })
     } else {
         $events.emit('selection-event', null)
@@ -196,9 +197,26 @@ removeLine(uuid) {
 }
 
 propagate(name, data) {
-    const list = (name === 'mousedown' || name === 'click') ? Object.values(rectangles).slice().reverse() : Object.values(rectangles)
+    const list = (name === 'mousedown' || name === 'click' || name === 'dblclick') ? Object.values(rectangles).slice().reverse() : Object.values(rectangles)
     for (var rect of list) {
-        rect[name](data)
+        if (rect[name]) rect[name](data)
+    }
+}
+
+dblclick(event) {
+    if (startDrawTool) return
+    const drawingRect = Object.values(rectangles).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
+    if (drawingRect) return
+
+    for (var rect of Object.values(rectangles).slice().reverse()) {
+        if (rect.collision() || (rect.pins && rect.pins.some(p => p.hover()))) {
+            rectangleselected(rect.data.uuid, true)
+            if (event) {
+                event.__toolCaptured = true
+                if (event.stopPropagation) event.stopPropagation()
+            }
+            return
+        }
     }
 }
 
@@ -216,6 +234,16 @@ mousedown(event) {
 
     if (event && (event.__toolCaptured || $lib.Utils.defaultPrevented(event))) {
         return
+    }
+
+    if (event && event.detail === 2) {
+        for (var rect of Object.values(rectangles).slice().reverse()) {
+            if (rect.collision() || (rect.pins && rect.pins.some(p => p.hover()))) {
+                rectangleselected(rect.data.uuid, true)
+                event.__toolCaptured = true
+                return
+            }
+        }
     }
 
     mouseX = $core.mouse.x

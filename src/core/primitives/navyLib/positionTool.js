@@ -297,8 +297,10 @@ export default class PositionTool {
         const hitMode = this.getHitMode(mx, my)
 
         if (hitMode) {
-            this.onSelect(this.data.uuid)
+            const isDbl = event && event.detail === 2
+            this.onSelect(this.data.uuid, isDbl)
             if (event) event.__toolCaptured = true
+            if (isDbl) return
 
             this.isDragging = true
             this.dragMode = hitMode
@@ -313,6 +315,20 @@ export default class PositionTool {
             this.core.events.emit('scroll-lock', true)
             this.core.events.emit('set-cursor', 'grabbing')
             if (event && event.preventDefault) event.preventDefault()
+        }
+    }
+
+    dblclick(event) {
+        const mouse = this.core.mouse
+        const mx = mouse ? mouse.x : 0
+        const my = mouse ? mouse.y : 0
+        const hitMode = this.getHitMode(mx, my)
+        if (hitMode) {
+            this.onSelect(this.data.uuid, true)
+            if (event) {
+                event.__toolCaptured = true
+                if (event.preventDefault) event.preventDefault()
+            }
         }
     }
 

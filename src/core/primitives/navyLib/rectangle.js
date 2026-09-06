@@ -214,8 +214,10 @@ export default class Rectangle {
         this.propagate('mousedown', event)
 
         if (this.collision() || pinHovered) {
-            this.onSelect(this.data.uuid)
+            const isDbl = event && event.detail === 2
+            this.onSelect(this.data.uuid, isDbl)
             if (event) event.__toolCaptured = true
+            if (isDbl) return
         }
 
         if (!pinHovered && this.collision()) {
@@ -235,6 +237,16 @@ export default class Rectangle {
             const hoveredPin = this.pins.find(p => p.hover())
             if (hoveredPin) {
                 this.core.events.emit('set-cursor', this.getPinCursor(hoveredPin))
+            }
+        }
+    }
+
+    dblclick(event) {
+        if (this.collision() || (this.pins && this.pins.some(p => p.hover()))) {
+            this.onSelect(this.data.uuid, true)
+            if (event) {
+                event.__toolCaptured = true
+                if (event.preventDefault) event.preventDefault()
             }
         }
     }

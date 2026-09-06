@@ -255,8 +255,10 @@ export default class FiboRetracement {
         this.propagate('mousedown', event)
 
         if (this.collision() || pinHovered) {
-            this.onSelect(this.data.uuid)
+            const isDbl = event && event.detail === 2
+            this.onSelect(this.data.uuid, isDbl)
             if (event) event.__toolCaptured = true
+            if (isDbl) return
         }
 
         if (!pinHovered && this.collision()) {
@@ -271,6 +273,17 @@ export default class FiboRetracement {
             }
             this.core.events.emit('scroll-lock', true)
             this.core.events.emit('set-cursor', 'grabbing')
+            if (event) {
+                event.__toolCaptured = true
+                if (event.preventDefault) event.preventDefault()
+            }
+        }
+    }
+
+    dblclick(event) {
+        if (this.isDrawing) return
+        if (this.collision() || (this.pins && this.pins.some(p => p.hover()))) {
+            this.onSelect(this.data.uuid, true)
             if (event) {
                 event.__toolCaptured = true
                 if (event.preventDefault) event.preventDefault()

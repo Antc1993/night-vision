@@ -170,7 +170,7 @@ newPosition(type) {
     startDrawType = null
 }
 
-positionSelected($uuid) {
+positionSelected($uuid, openSettings = false) {
     let selectedPos = null
     for (var uuid in positions) {
         positions[uuid].selected = uuid === $uuid
@@ -188,7 +188,8 @@ positionSelected($uuid) {
             x: $core.mouse ? $core.mouse.x : 0,
             y: $core.mouse ? $core.mouse.y : 0,
             gridOffset: $core.layout.sbMax[0],
-            paneOffset: $core.layout.offset
+            paneOffset: $core.layout.offset,
+            openSettings: openSettings
         })
     } else {
         $events.emit('selection-event', null)
@@ -203,9 +204,24 @@ removePosition(uuid) {
 }
 
 propagate(name, data) {
-    const list = (name === 'mousedown' || name === 'click') ? Object.values(positions).slice().reverse() : Object.values(positions)
+    const list = (name === 'mousedown' || name === 'click' || name === 'dblclick') ? Object.values(positions).slice().reverse() : Object.values(positions)
     for (var pos of list) {
-        pos[name](data)
+        if (pos[name]) pos[name](data)
+    }
+}
+
+dblclick(event) {
+    if (startDrawType) return
+
+    for (var pos of Object.values(positions).slice().reverse()) {
+        if (pos.collision()) {
+            positionSelected(pos.data.uuid, true)
+            if (event) {
+                event.__toolCaptured = true
+                if (event.stopPropagation) event.stopPropagation()
+            }
+            return
+        }
     }
 }
 
@@ -217,6 +233,16 @@ mousedown(event) {
 
     if (event && (event.__toolCaptured || $lib.Utils.defaultPrevented(event))) {
         return
+    }
+
+    if (event && event.detail === 2) {
+        for (var pos of Object.values(positions).slice().reverse()) {
+            if (pos.collision()) {
+                positionSelected(pos.data.uuid, true)
+                event.__toolCaptured = true
+                return
+            }
+        }
     }
 
     mouseX = $core.mouse.x

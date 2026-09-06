@@ -139,7 +139,7 @@ newPath() {
     startDrawTool = false
 }
 
-pathSelected($uuid) {
+pathSelected($uuid, openSettings = false) {
     let selectedPath = null
     for (var uuid in paths) {
         paths[uuid].selected = uuid === $uuid
@@ -158,7 +158,8 @@ pathSelected($uuid) {
             x: $core.mouse ? $core.mouse.x : 0,
             y: $core.mouse ? $core.mouse.y : 0,
             gridOffset: $core.layout.sbMax[0],
-            paneOffset: $core.layout.offset
+            paneOffset: $core.layout.offset,
+            openSettings: openSettings
         })
     } else {
         $events.emit('selection-event', null)
@@ -173,9 +174,33 @@ removePath(uuid) {
 }
 
 propagate(name, data) {
-    const list = (name === 'mousedown' || name === 'click') ? Object.values(paths).slice().reverse() : Object.values(paths)
+    const list = (name === 'mousedown' || name === 'click' || name === 'dblclick') ? Object.values(paths).slice().reverse() : Object.values(paths)
     for (var p of list) {
-        p[name](data)
+        if (p[name]) p[name](data)
+    }
+}
+
+dblclick(event) {
+    if (startDrawTool) return
+    const drawingPath = Object.values(paths).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
+    if (drawingPath) {
+        drawingPath.finishDrawing()
+        if (event) {
+            event.__toolCaptured = true
+            if (event.stopPropagation) event.stopPropagation()
+        }
+        return
+    }
+
+    for (var p of Object.values(paths).slice().reverse()) {
+        if (p.collision() || (p.pins && p.pins.some(pin => pin.hover()))) {
+            pathSelected(p.data.uuid, true)
+            if (event) {
+                event.__toolCaptured = true
+                if (event.stopPropagation) event.stopPropagation()
+            }
+            return
+        }
     }
 }
 
@@ -198,6 +223,16 @@ mousedown(event) {
 
     if (event && (event.__toolCaptured || $lib.Utils.defaultPrevented(event))) {
         return
+    }
+
+    if (event && event.detail === 2) {
+        for (var p of Object.values(paths).slice().reverse()) {
+            if (p.collision() || (p.pins && p.pins.some(pin => pin.hover()))) {
+                pathSelected(p.data.uuid, true)
+                event.__toolCaptured = true
+                return
+            }
+        }
     }
 
     mouseX = $core.mouse.x

@@ -294,8 +294,10 @@ export default class PathToolPrimitive {
         this.propagate('mousedown', event)
 
         if (this.collision() || pinHovered) {
-            this.onSelect(this.data.uuid)
+            const isDbl = event && event.detail === 2
+            this.onSelect(this.data.uuid, isDbl)
             if (event) event.__toolCaptured = true
+            if (isDbl) return
         }
 
         if (!pinHovered && this.collision()) {
@@ -322,6 +324,24 @@ export default class PathToolPrimitive {
             }
         } else if (pinHovered) {
             this.core.events.emit('set-cursor', 'pointer')
+        }
+    }
+
+    dblclick(event) {
+        if (this.isDrawing) {
+            this.finishDrawing()
+            if (event) {
+                event.__toolCaptured = true
+                if (event.preventDefault) event.preventDefault()
+            }
+            return
+        }
+        if (this.collision() || (this.pins && this.pins.some(p => p.hover()))) {
+            this.onSelect(this.data.uuid, true)
+            if (event) {
+                event.__toolCaptured = true
+                if (event.preventDefault) event.preventDefault()
+            }
         }
     }
 

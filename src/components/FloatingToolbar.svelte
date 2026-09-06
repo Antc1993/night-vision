@@ -125,6 +125,14 @@
                 x = grid.sbMax[0] + grid.width - 90;
                 y = 40;
             }
+
+            if (data.openSettings) {
+                settingsOpen = true;
+                activeTab = "style";
+                const grid = (layout.grids || [])[0] || { width: props.width || 800, height: 500 };
+                modalX = Math.max(20, (grid.width - 400) / 2);
+                modalY = Math.max(20, 60);
+            }
         } else {
             selectedTool = null;
             visible = false;

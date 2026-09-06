@@ -149,7 +149,7 @@ newLine() {
     startDrawTool = false
 }
 
-lineSelected($uuid) {
+lineSelected($uuid, openSettings = false) {
     let selectedLine = null;
     for (var uuid in lines) {
         lines[uuid].selected = uuid === $uuid
@@ -167,7 +167,8 @@ lineSelected($uuid) {
             x: $core.mouse ? $core.mouse.x : 0,
             y: $core.mouse ? $core.mouse.y : 0,
             gridOffset: $core.layout.sbMax[0],
-            paneOffset: $core.layout.offset
+            paneOffset: $core.layout.offset,
+            openSettings: openSettings
         })
     } else {
         $events.emit('selection-event', null)
@@ -196,9 +197,26 @@ removeLine(uuid) {
 }
 
 propagate(name, data) {
-    const list = (name === 'mousedown' || name === 'click') ? Object.values(lines).slice().reverse() : Object.values(lines)
+    const list = (name === 'mousedown' || name === 'click' || name === 'dblclick') ? Object.values(lines).slice().reverse() : Object.values(lines)
     for (var line of list) {
-        line[name](data)
+        if (line[name]) line[name](data)
+    }
+}
+
+dblclick(event) {
+    if (startDrawTool) return
+    const drawingLine = Object.values(lines).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
+    if (drawingLine) return
+
+    for (var line of Object.values(lines).slice().reverse()) {
+        if (line.collision() || (line.pins && line.pins.some(p => p.hover()))) {
+            lineSelected(line.data.uuid, true)
+            if (event) {
+                event.__toolCaptured = true
+                if (event.stopPropagation) event.stopPropagation()
+            }
+            return
+        }
     }
 }
 
@@ -216,6 +234,16 @@ mousedown(event) {
 
     if (event && (event.__toolCaptured || $lib.Utils.defaultPrevented(event))) {
         return
+    }
+
+    if (event && event.detail === 2) {
+        for (var line of Object.values(lines).slice().reverse()) {
+            if (line.collision() || (line.pins && line.pins.some(p => p.hover()))) {
+                lineSelected(line.data.uuid, true)
+                event.__toolCaptured = true
+                return
+            }
+        }
     }
 
     mouseX = $core.mouse.x
