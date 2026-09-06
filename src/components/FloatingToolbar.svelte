@@ -52,6 +52,9 @@
         ray: LineStyle,
         "horizontal-ray": LineStyle,
         rectangle: RectangleStyle,
+        triangle: RectangleStyle,
+        path: LineStyle,
+        polyline: LineStyle,
         fibonacci: FibonacciStyle,
         measure: MeasureStyle,
         range: MeasureStyle,
@@ -73,6 +76,11 @@
         switch (type) {
             case "rectangle":
                 return "Rectángulo";
+            case "triangle":
+                return "Triángulo";
+            case "path":
+            case "polyline":
+                return "Polilínea / Trayectoria";
             case "horizontal":
                 return "Línea horizontal";
             case "vertical":

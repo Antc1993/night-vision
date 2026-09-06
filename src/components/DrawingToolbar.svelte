@@ -23,12 +23,14 @@
         let drawings = 0;
         let indicators = 0;
         if (hub && hub.data && hub.data.panes) {
-            const toolTypes = ["RectTool", "LineTool", "FibonacciRetracementTool", "MeasureTool", "TextTool", "PositionTool"];
+            const toolTypes = ["RectTool", "TriangleTool", "PathTool", "LineTool", "FibonacciRetracementTool", "MeasureTool", "TextTool", "PositionTool"];
             for (var pane of hub.data.panes) {
                 for (var ov of pane.overlays || []) {
                     if (ov.dataExt) {
                         if (ov.dataExt.lines) drawings += ov.dataExt.lines.length;
                         if (ov.dataExt.rectangles) drawings += ov.dataExt.rectangles.length;
+                        if (ov.dataExt.triangles) drawings += ov.dataExt.triangles.length;
+                        if (ov.dataExt.paths) drawings += ov.dataExt.paths.length;
                         if (ov.dataExt.fibos) drawings += ov.dataExt.fibos.length;
                         if (ov.dataExt.measures) drawings += ov.dataExt.measures.length;
                         if (ov.dataExt.texts) drawings += ov.dataExt.texts.length;
@@ -53,6 +55,10 @@
             events.emit("tool-line", subtype);
         } else if (type === "rectangle") {
             events.emit("tool-rectangle", "nada");
+        } else if (type === "triangle") {
+            events.emit("tool-triangle", "nada");
+        } else if (type === "path") {
+            events.emit("tool-path", "nada");
         } else if (type === "text") {
             events.emit("tool-text", "nada");
         } else if (type === "long") {
@@ -203,16 +209,80 @@
         </button>
     </div>
 
-    <!-- 4. Geometric Shapes / Rectangle -->
+    <!-- 4. Geometric Shapes (Rectangle, Triangle) with Flyout Arrow -->
+    <div class="nvjs-tb-item-wrapper has-arrow">
+        <button
+            class="nvjs-tb-btn"
+            class:active={activeTool === "rectangle" || activeTool === "triangle"}
+            on:click={() => selectTool(activeTool === "triangle" ? "triangle" : "rectangle", "nada")}
+            title="Figuras geométricas"
+        >
+            {#if activeTool === "triangle"}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12,4 21,20 3,20"></polygon>
+                </svg>
+            {:else}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                </svg>
+            {/if}
+        </button>
+        <button
+            class="nvjs-tb-arrow-btn"
+            class:active={openFlyout === "shapes"}
+            on:click={(e) => toggleFlyout("shapes", e)}
+            title="Más figuras geométricas"
+        >
+            <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="0,0 24,12 0,24"></polygon>
+            </svg>
+        </button>
+
+        {#if openFlyout === "shapes"}
+            <div class="nvjs-tb-flyout">
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "rectangle"}
+                    on:click={() => selectTool("rectangle", "nada")}
+                >
+                    <span class="nvjs-flyout-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                        </svg>
+                    </span>
+                    <span>Rectángulo</span>
+                </button>
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "triangle"}
+                    on:click={() => selectTool("triangle", "nada")}
+                >
+                    <span class="nvjs-flyout-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12,4 21,20 3,20"></polygon>
+                        </svg>
+                    </span>
+                    <span>Triángulo (3 puntos)</span>
+                </button>
+            </div>
+        {/if}
+    </div>
+
+    <!-- 5. Path / Polyline Tool -->
     <div class="nvjs-tb-item-wrapper">
         <button
             class="nvjs-tb-btn"
-            class:active={activeTool === "rectangle"}
-            on:click={() => selectTool("rectangle", "nada")}
-            title="Rectángulo"
+            class:active={activeTool === "path"}
+            on:click={() => selectTool("path", "nada")}
+            title="Polilínea / Trayectoria (Doble clic o Enter para finalizar)"
         >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                <polyline points="4,19 8,8 14,14 20,4"></polyline>
+                <line x1="20" y1="4" x2="15" y2="4"></line>
+                <line x1="20" y1="4" x2="20" y2="9"></line>
+                <circle cx="4" cy="19" r="1.5" fill="currentColor"></circle>
+                <circle cx="8" cy="8" r="1.5" fill="currentColor"></circle>
+                <circle cx="14" cy="14" r="1.5" fill="currentColor"></circle>
             </svg>
         </button>
     </div>

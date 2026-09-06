@@ -74,6 +74,20 @@ Cada herramienta consta de 3 capas esenciales:
 3. `isDrawing = false` de inmediato.
 4. Se emite `$events.emit('scroll-lock', false)` de inmediato.
 
+### Herramientas de 3 Clics (Triángulo, Canales Paralelos)
+1. **Clic 1**: Se fija `p1` (`settled`), `p2` entra en `'tracking'`. `this.step = 2`, `isDrawing = true`, `scroll-lock = true`.
+2. **Clic 2**: `p2` pasa a `'settled'`, `p3` entra en `'tracking'` (`this.step = 3`). Se previsualiza la figura completa en tiempo real.
+3. **Clic 3**: `p3` pasa a `'settled'`, `isDrawing = false`, `scroll-lock = false`. Se activa la selección del objeto.
+
+### Herramientas de N Clics (Polilínea / Path)
+1. **Clic 1**: Crea el trazo con `p0` (`settled`) y `p1` (`tracking`).
+2. **Clics subsiguientes ($2 \dots N$)**: Cada clic asienta el pin actual y añade un nuevo pin en `'tracking'`.
+3. **Finalización**:
+   - **Tecla Enter o Escape**: Finaliza el trazo con los puntos fijados.
+   - **Doble Clic (`dblclick`)**: Asienta el último vértice y concluye el dibujo.
+   - **Clic cerca del origen ($P_0$)**: Cierra el contorno (`closed = true`) formando un polígono cerrado.
+   - Al finalizar, `isDrawing = false` y se libera el `scroll-lock`.
+
 ---
 
 ## 3. Reglas Críticas para Evitar Errores

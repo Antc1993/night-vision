@@ -35,6 +35,8 @@ import TextAnnotation from '../primitives/navyLib/textAnnotation.js'
 import PositionTool from '../primitives/navyLib/positionTool.js'
 
 import Pin from '../primitives/navyLib/pin.js'
+import Triangle from '../primitives/navyLib/triangle.js'
+import PathToolPrimitive from '../primitives/navyLib/pathTool.js'
 import {
     fastSma, candleColor, rescaleFont
 } from '../primitives/navyLib/helperFns.js'
@@ -72,7 +74,7 @@ export default class OverlayEnv {
             candleBody, candleWick, volumeBar,
             fastSma, avgVolume, candleColor,
             roundRect, rescaleFont, drawArrow,
-            TrendLine, Segment, HorizontalLine, HorizontalRay, VerticalLine, TextAnnotation, PositionTool, Pin, Rectangle, FiboRetracement, Measure,
+            TrendLine, Segment, HorizontalLine, HorizontalRay, VerticalLine, TextAnnotation, PositionTool, Pin, Rectangle, FiboRetracement, Measure, Triangle, PathToolPrimitive,
             Utils
         }
 

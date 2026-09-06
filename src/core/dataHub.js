@@ -10,6 +10,8 @@ import DataView$ from './dataView.js'
 
 const DEFAULT_TOOLS = [
     { name: 'RectTool', type: 'RectTool' },
+    { name: 'TriangleTool', type: 'TriangleTool' },
+    { name: 'PathTool', type: 'PathTool' },
     { name: 'LineTool', type: 'LineTool' },
     { name: 'FibonacciRetracementTool', type: 'FibonacciRetracementTool' },
     { name: 'MeasureTool', type: 'MeasureTool' },
