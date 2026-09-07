@@ -3,7 +3,11 @@
 
 [INDICATOR name=VWAP, version=1.0.0]
 
-prop('anchor', { type: 'string', def: 'Day' })
+prop('anchor', {
+    type: 'opt',
+    def: 'Day',
+    options: ['Day', 'Week', 'Month']
+})
 prop('showBands', { type: 'boolean', def: true })
 prop('mult', { type: 'number', def: 1.0, step: 0.5 })
 prop('color', { type: 'color', def: '#ff9800' })

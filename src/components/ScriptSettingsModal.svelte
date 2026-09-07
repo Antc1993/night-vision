@@ -269,7 +269,8 @@
         useTrueRange: "Usar Rango Verdadero (ATR)",
         long: "Periodo Largo",
         short: "Periodo Corto",
-        barWidth: "Grosor de Barras"
+        barWidth: "Grosor de Barras",
+        anchor: "Periodo de Anclaje (Anchor)"
     };
 
     const COLOR_LABELS = {
@@ -505,14 +506,22 @@
                                             />
                                             <span class="tv-switch-custom"></span>
                                         </label>
-                                    {:else if type === "opt" || descr.options}
+                                    {:else if type === "opt" || descr.options || key === "anchor"}
                                         <select
                                             class="tv-select"
                                             bind:value={editingProps[key]}
-                                            on:change={emitLiveUpdate}
+                                            on:change={() => emitLiveUpdate(true)}
                                         >
-                                            {#each descr.options || [] as opt}
-                                                <option value={opt}>{opt}</option>
+                                            {#each (descr.options || (key === "anchor" ? [
+                                                { value: 'Day', label: 'Día (Sesión)' },
+                                                { value: 'Week', label: 'Semana' },
+                                                { value: 'Month', label: 'Mes' }
+                                            ] : [])) as opt}
+                                                {#if typeof opt === 'object' && opt !== null}
+                                                    <option value={opt.value}>{opt.label || opt.value}</option>
+                                                {:else}
+                                                    <option value={opt}>{opt === 'Day' ? 'Día (Sesión)' : opt === 'Week' ? 'Semana' : opt === 'Month' ? 'Mes' : opt}</option>
+                                                {/if}
                                             {/each}
                                         </select>
                                     {:else}
@@ -927,10 +936,19 @@
         border: 1px solid #363c4e;
         border-radius: 6px;
         color: #ffffff;
-        padding: 6px 10px;
+        padding: 6px 12px;
         font-size: 13px;
         outline: none;
         cursor: pointer;
+        min-width: 120px;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .tv-select:hover {
+        border-color: #2962ff;
+    }
+    .tv-select:focus {
+        border-color: #2962ff;
+        box-shadow: 0 0 0 2px rgba(41, 98, 255, 0.25);
     }
 
     .tv-color-control {
