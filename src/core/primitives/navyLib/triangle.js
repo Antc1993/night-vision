@@ -163,7 +163,7 @@ export default class Triangle {
         if (this.isDrawing) {
             if (this.step === 2) {
                 // Settle P2, start tracking P3
-                this.pins[1].mousedown(event)
+                this.pins[1].mousedown(event, true)
                 this.pins[2].t = this.pins[1].t
                 this.pins[2].y$ = this.pins[1].y$
                 this.pins[2].state = 'tracking'
@@ -178,11 +178,12 @@ export default class Triangle {
 
             if (this.step === 3) {
                 // Settle P3, finish drawing
-                this.pins[2].mousedown(event)
+                this.pins[2].mousedown(event, true)
                 this.isDrawing = false
                 this.data.isDrawing = false
                 this.step = 0
                 this.core.events.emit('scroll-lock', false)
+                this.core.events.emit('hub:set-drawing-in-progress', false)
                 this.onSelect(this.data.uuid)
                 this.core.events.emit('update-layout')
                 if (event) {
@@ -191,6 +192,10 @@ export default class Triangle {
                 }
                 return
             }
+        }
+
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) {
+            return
         }
 
         if (event && (event.__toolCaptured || this.core.lib.Utils.defaultPrevented(event))) {
@@ -236,6 +241,7 @@ export default class Triangle {
 
     dblclick(event) {
         if (this.isDrawing) return
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) return
         if (this.collision() || (this.pins && this.pins.some(p => p.hover()))) {
             this.onSelect(this.data.uuid, true)
             if (event) {
@@ -296,7 +302,7 @@ export default class Triangle {
 
         if (this.isDrawing) {
             this.core.events.emit('set-cursor', 'crosshair')
-        } else if (this.hover) {
+        } else if (this.hover && !this.core.hub?.isDrawingMode?.()) {
             this.core.events.emit('set-cursor', 'pointer')
         }
     }

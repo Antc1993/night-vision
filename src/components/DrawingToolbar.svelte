@@ -51,6 +51,15 @@
         activeTool = subtype !== "nada" ? subtype : type;
         openFlyout = null;
 
+        if (type === "cursor") {
+            events.emit("hub:set-drawing-tool", null);
+            events.emit("hub:set-drawing-in-progress", false);
+            events.emit("set-cursor", subtype || "crosshair");
+            return;
+        }
+
+        events.emit("hub:set-drawing-tool", type);
+
         if (type === "line") {
             events.emit("tool-line", subtype);
         } else if (type === "rectangle") {
@@ -69,8 +78,6 @@
             events.emit("tool-fibos", "horizontal");
         } else if (type === "measure") {
             events.emit("tool-measure", "nada");
-        } else if (type === "cursor") {
-            events.emit("set-cursor", subtype || "crosshair");
         }
     }
 

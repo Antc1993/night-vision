@@ -41,6 +41,40 @@ class DataHub {
         events.on('hub:delete-pane', this.onDeletePane.bind(this))
         events.on('hub:maximize-pane', this.onMaximizePane.bind(this))
         events.on('hub:collapse-pane', this.onCollapsePane.bind(this))
+
+        // DRAWING MODE STATE
+        this.drawingTool = null
+        this.drawingInProgress = false
+
+        events.on('hub:set-drawing-tool', toolType => {
+            this.drawingTool = toolType || null
+        })
+        events.on('hub:set-drawing-in-progress', inProgress => {
+            this.drawingInProgress = !!inProgress
+            if (!inProgress) {
+                this.drawingTool = null
+            }
+        })
+        events.on('scroll-lock', locked => {
+            if (!locked) {
+                this.drawingInProgress = false
+                this.drawingTool = null
+            }
+        })
+        events.on('set-cursor', cursor => {
+            if (cursor === 'crosshair' || cursor === 'default') {
+                this.drawingTool = null
+                this.drawingInProgress = false
+            }
+        })
+        events.on('tool-started', () => {
+            this.drawingInProgress = true
+            this.drawingTool = null
+        })
+    }
+
+    isDrawingMode() {
+        return !!(this.drawingTool || this.drawingInProgress)
     }
 
     isToolType(type) {

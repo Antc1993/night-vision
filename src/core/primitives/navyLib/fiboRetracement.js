@@ -230,10 +230,11 @@ export default class FiboRetracement {
         if (this.isDrawing) {
             const trackingPin = this.pins.find(p => p.state === 'tracking')
             if (trackingPin) {
-                trackingPin.mousedown(event)
+                trackingPin.mousedown(event, true)
                 this.isDrawing = false
                 this.data.isDrawing = false
                 this.core.events.emit('scroll-lock', false)
+                this.core.events.emit('hub:set-drawing-in-progress', false)
                 this.onSelect(this.data.uuid)
                 this.core.events.emit('update-layout')
                 if (event) {
@@ -244,6 +245,10 @@ export default class FiboRetracement {
             }
             this.isDrawing = false
             this.data.isDrawing = false
+        }
+
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) {
+            return
         }
 
         if (event && (event.__toolCaptured || this.core.lib.Utils.defaultPrevented(event))) {
@@ -282,6 +287,7 @@ export default class FiboRetracement {
 
     dblclick(event) {
         if (this.isDrawing) return
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) return
         if (this.collision() || (this.pins && this.pins.some(p => p.hover()))) {
             this.onSelect(this.data.uuid, true)
             if (event) {
@@ -319,6 +325,10 @@ export default class FiboRetracement {
                 trackingPin.mousemove(event)
                 this.core.events.emit('update-layout')
             }
+            return
+        }
+
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) {
             return
         }
 

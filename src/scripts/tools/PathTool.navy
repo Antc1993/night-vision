@@ -135,8 +135,10 @@ newPath() {
 
     $events.emit('tool-started', $core.uuid)
     $events.emit('scroll-lock', true)
+    $events.emit('hub:set-drawing-in-progress', true)
     $events.emit('update-layout')
     startDrawTool = false
+    if (event) event.__toolCaptured = true
 }
 
 pathSelected($uuid, openSettings = false) {
@@ -191,6 +193,7 @@ dblclick(event) {
         }
         return
     }
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) return
 
     for (var p of Object.values(paths).slice().reverse()) {
         if (p.collision() || (p.pins && p.pins.some(pin => pin.hover()))) {
@@ -206,7 +209,8 @@ dblclick(event) {
 
 mousedown(event) {
     if (startDrawTool) {
-        newPath()
+        newPath(event)
+        if (event) event.__toolCaptured = true
         return
     }
 
@@ -215,9 +219,15 @@ mousedown(event) {
         // Check for double click simulation or direct click
         if (event && event.detail === 2) {
             drawingPath.finishDrawing()
+            if (event) event.__toolCaptured = true
             return
         }
         drawingPath.mousedown(event)
+        if (event) event.__toolCaptured = true
+        return
+    }
+
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) {
         return
     }
 
@@ -268,6 +278,13 @@ keydown(event) {
     const drawingPath = Object.values(paths).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
     if (drawingPath && (event.code === 'Enter' || event.code === 'Escape')) {
         drawingPath.finishDrawing()
+        $events.emit('hub:set-drawing-in-progress', false)
+        $events.emit('hub:set-drawing-tool', null)
+        return
+    }
+    if (startDrawTool && event.code === 'Escape') {
+        startDrawTool = false
+        $events.emit('hub:set-drawing-tool', null)
         return
     }
 

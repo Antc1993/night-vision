@@ -139,8 +139,10 @@ newFibo() {
 
     $events.emit('tool-started', $core.uuid)
     $events.emit('scroll-lock', true)
+    $events.emit('hub:set-drawing-in-progress', true)
     $events.emit('update-layout')
     startDrawTool = false
+    if (event) event.__toolCaptured = true
 }
 
 fiboSelected($uuid, openSettings = false) {
@@ -187,7 +189,7 @@ removeFibo(uuid) {
     delete fibos[uuid]
     $core.dataExt.fibos = $core.dataExt.fibos.filter(x => x.uuid !== uuid)
     $events.emit('update-layout')
-    /*  $events.emit('floating-toolbar:selection-event', null) */
+    $events.emit('selection-event', null)
 }
 
 propagate(name, data) {
@@ -201,6 +203,7 @@ dblclick(event) {
     if (startDrawTool) return
     const drawingFibo = Object.values(fibos).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
     if (drawingFibo) return
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) return
 
     for (var fibo of Object.values(fibos).slice().reverse()) {
         if (fibo.collision() || (fibo.pins && fibo.pins.some(p => p.hover()))) {
@@ -216,13 +219,19 @@ dblclick(event) {
 
 mousedown(event) {
     if (startDrawTool) {
-        newFibo()
+        newFibo(event)
+        if (event) event.__toolCaptured = true
         return
     }
 
     const drawingFibo = Object.values(fibos).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
     if (drawingFibo) {
         drawingFibo.mousedown(event)
+        if (event) event.__toolCaptured = true
+        return
+    }
+
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) {
         return
     }
 
@@ -270,7 +279,23 @@ mousemove(event) {
 }
 
 keydown(event) {
-    if (event.code === 'Backspace') {
+    if (event.code === 'Escape') {
+        const drawingFibo = Object.values(fibos).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
+        if (drawingFibo) {
+            removeFibo(drawingFibo.data.uuid)
+            $events.emit('scroll-lock', false)
+            $events.emit('hub:set-drawing-in-progress', false)
+            $events.emit('hub:set-drawing-tool', null)
+            return
+        }
+        if (startDrawTool) {
+            startDrawTool = false
+            $events.emit('hub:set-drawing-tool', null)
+            return
+        }
+    }
+
+    if (event.code === 'Backspace' || event.code === 'Delete') {
         let s = Object.values(fibos).find(x => x.selected)
         if (s) removeFibo(s.data.uuid)
     }

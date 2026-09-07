@@ -133,6 +133,8 @@ newText() {
 
     $events.emit('tool-started', $core.uuid)
     $events.emit('scroll-lock', false)
+    $events.emit('hub:set-drawing-in-progress', false)
+    $events.emit('hub:set-drawing-tool', null)
     $events.emit('update-layout')
     startDrawTool = false
 }
@@ -179,6 +181,7 @@ propagate(name, data) {
 
 dblclick(event) {
     if (startDrawTool) return
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) return
 
     for (var t of Object.values(texts).slice().reverse()) {
         if (t.collision() || (t.pins && t.pins.some(p => p.hover()))) {
@@ -195,6 +198,11 @@ dblclick(event) {
 mousedown(event) {
     if (startDrawTool) {
         newText()
+        if (event) event.__toolCaptured = true
+        return
+    }
+
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) {
         return
     }
 
@@ -242,6 +250,12 @@ mousemove(event) {
 }
 
 keydown(event) {
+    if (event.code === 'Escape' && startDrawTool) {
+        startDrawTool = false
+        $events.emit('hub:set-drawing-tool', null)
+        return
+    }
+
     if (event.code === 'Backspace' || event.code === 'Delete') {
         let s = Object.values(texts).find(x => x.selected)
         if (s) removeText(s.data.uuid)

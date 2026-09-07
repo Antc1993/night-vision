@@ -286,6 +286,10 @@ export default class PositionTool {
     }
 
     mousedown(event) {
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) {
+            return
+        }
+
         if (event && (event.__toolCaptured || this.core.lib.Utils.defaultPrevented(event))) {
             return
         }
@@ -319,6 +323,7 @@ export default class PositionTool {
     }
 
     dblclick(event) {
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) return
         const mouse = this.core.mouse
         const mx = mouse ? mouse.x : 0
         const my = mouse ? mouse.y : 0
@@ -339,6 +344,8 @@ export default class PositionTool {
             this.dragStart = null
             this.core.events.emit('scroll-lock', false)
         }
+
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) return
 
         const mouse = this.core.mouse
         const mx = mouse ? mouse.x : 0

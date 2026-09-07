@@ -143,8 +143,10 @@ newRectangle() {
 
     $events.emit('tool-started', $core.uuid)
     $events.emit('scroll-lock', true)
+    $events.emit('hub:set-drawing-in-progress', true)
     $events.emit('update-layout')
     startDrawTool = false
+    if (event) event.__toolCaptured = true
 }
 
 rectangleselected($uuid, openSettings = false) {
@@ -193,7 +195,7 @@ removeLine(uuid) {
     delete rectangles[uuid]
     $core.dataExt.rectangles = $core.dataExt.rectangles.filter(x => x.uuid !== uuid)
     $events.emit('update-layout')
-
+    $events.emit('selection-event', null)
 }
 
 propagate(name, data) {
@@ -207,6 +209,7 @@ dblclick(event) {
     if (startDrawTool) return
     const drawingRect = Object.values(rectangles).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
     if (drawingRect) return
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) return
 
     for (var rect of Object.values(rectangles).slice().reverse()) {
         if (rect.collision() || (rect.pins && rect.pins.some(p => p.hover()))) {
@@ -222,13 +225,19 @@ dblclick(event) {
 
 mousedown(event) {
     if (startDrawTool) {
-        newRectangle()
+        newRectangle(event)
+        if (event) event.__toolCaptured = true
         return
     }
 
     const drawingRect = Object.values(rectangles).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
     if (drawingRect) {
         drawingRect.mousedown(event)
+        if (event) event.__toolCaptured = true
+        return
+    }
+
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) {
         return
     }
 
@@ -277,7 +286,23 @@ mousemove(event) {
 }
 
 keydown(event) {
-    if (event.code === 'Backspace') {
+    if (event.code === 'Escape') {
+        const drawingRect = Object.values(rectangles).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
+        if (drawingRect) {
+            removeLine(drawingRect.data.uuid)
+            $events.emit('scroll-lock', false)
+            $events.emit('hub:set-drawing-in-progress', false)
+            $events.emit('hub:set-drawing-tool', null)
+            return
+        }
+        if (startDrawTool) {
+            startDrawTool = false
+            $events.emit('hub:set-drawing-tool', null)
+            return
+        }
+    }
+
+    if (event.code === 'Backspace' || event.code === 'Delete') {
         let s = Object.values(rectangles).find(x => x.selected)
         if (s) removeLine(s.data.uuid)
     }

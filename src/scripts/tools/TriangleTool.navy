@@ -149,8 +149,10 @@ newTriangle() {
 
     $events.emit('tool-started', $core.uuid)
     $events.emit('scroll-lock', true)
+    $events.emit('hub:set-drawing-in-progress', true)
     $events.emit('update-layout')
     startDrawTool = false
+    if (event) event.__toolCaptured = true
 }
 
 triangleSelected($uuid, openSettings = false) {
@@ -198,6 +200,7 @@ dblclick(event) {
     if (startDrawTool) return
     const drawingTri = Object.values(triangles).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
     if (drawingTri) return
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) return
 
     for (var tri of Object.values(triangles).slice().reverse()) {
         if (tri.collision() || (tri.pins && tri.pins.some(p => p.hover()))) {
@@ -213,13 +216,19 @@ dblclick(event) {
 
 mousedown(event) {
     if (startDrawTool) {
-        newTriangle()
+        newTriangle(event)
+        if (event) event.__toolCaptured = true
         return
     }
 
     const drawingTri = Object.values(triangles).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
     if (drawingTri) {
         drawingTri.mousedown(event)
+        if (event) event.__toolCaptured = true
+        return
+    }
+
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) {
         return
     }
 
@@ -267,6 +276,22 @@ mousemove(event) {
 }
 
 keydown(event) {
+    if (event.code === 'Escape') {
+        const drawingTri = Object.values(triangles).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
+        if (drawingTri) {
+            removeTriangle(drawingTri.data.uuid)
+            $events.emit('scroll-lock', false)
+            $events.emit('hub:set-drawing-in-progress', false)
+            $events.emit('hub:set-drawing-tool', null)
+            return
+        }
+        if (startDrawTool) {
+            startDrawTool = false
+            $events.emit('hub:set-drawing-tool', null)
+            return
+        }
+    }
+
     if (event.code === 'Backspace' || event.code === 'Delete') {
         let s = Object.values(triangles).find(x => x.selected)
         if (s) removeTriangle(s.data.uuid)

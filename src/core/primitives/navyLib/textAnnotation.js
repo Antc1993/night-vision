@@ -116,6 +116,10 @@ export default class TextAnnotation {
     }
 
     mousedown(event) {
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) {
+            return
+        }
+
         if (event && (event.__toolCaptured || this.core.lib.Utils.defaultPrevented(event))) {
             return
         }
@@ -143,6 +147,7 @@ export default class TextAnnotation {
     }
 
     dblclick(event) {
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) return
         if (this.collision() || (this.pins && this.pins.some(p => p.hover()))) {
             this.onSelect(this.data.uuid, true)
             if (event) {
@@ -161,12 +166,15 @@ export default class TextAnnotation {
 
         this.propagate('mouseup', event)
 
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) return
+
         if (this.collision()) {
             this.core.events.emit('set-cursor', 'move')
         }
     }
 
     mousemove(event) {
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) return
         if (this.isDragging && this.dragStart) {
             const currentT = this.core.cursor.time
             const currentY$ = this.core.layout.y2value(this.core.cursor.y)

@@ -145,6 +145,7 @@ export default class Pin {
                 break
             case 'settled':
                 if (this.hidden) return
+                if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) return
                 if (this.hover()) {
                     this.state = 'dragging'
                     this.moved = false
@@ -157,7 +158,7 @@ export default class Pin {
                 break
         }
 
-        if (this.hover()) {
+        if (this.state === 'dragging' && this.hover()) {
             if (event) {
                 event.__toolCaptured = true
                 if (event.preventDefault) event.preventDefault()

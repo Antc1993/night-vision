@@ -236,6 +236,7 @@ export default class PathToolPrimitive {
         this.data.isDrawing = false
         this.update()
         this.core.events.emit('scroll-lock', false)
+        this.core.events.emit('hub:set-drawing-in-progress', false)
         this.onSelect(this.data.uuid)
         this.core.events.emit('update-layout')
     }
@@ -266,7 +267,7 @@ export default class PathToolPrimitive {
 
             // Settle current pin
             if (lastPin && lastPin.state === 'tracking') {
-                lastPin.mousedown(event)
+                lastPin.mousedown(event, true)
             }
 
             // Spawn next tracking pin
@@ -283,6 +284,10 @@ export default class PathToolPrimitive {
                 event.__toolCaptured = true
                 if (event.preventDefault) event.preventDefault()
             }
+            return
+        }
+
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) {
             return
         }
 
@@ -336,6 +341,7 @@ export default class PathToolPrimitive {
             }
             return
         }
+        if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) return
         if (this.collision() || (this.pins && this.pins.some(p => p.hover()))) {
             this.onSelect(this.data.uuid, true)
             if (event) {
@@ -394,7 +400,7 @@ export default class PathToolPrimitive {
 
         if (this.isDrawing) {
             this.core.events.emit('set-cursor', 'crosshair')
-        } else if (this.hover) {
+        } else if (this.hover && !this.core.hub?.isDrawingMode?.()) {
             this.core.events.emit('set-cursor', 'pointer')
         }
     }

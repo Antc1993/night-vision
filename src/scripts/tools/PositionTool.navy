@@ -166,6 +166,8 @@ newPosition(type) {
 
     $events.emit('tool-started', $core.uuid)
     $events.emit('scroll-lock', false)
+    $events.emit('hub:set-drawing-in-progress', false)
+    $events.emit('hub:set-drawing-tool', null)
     $events.emit('update-layout')
     startDrawType = null
 }
@@ -212,6 +214,7 @@ propagate(name, data) {
 
 dblclick(event) {
     if (startDrawType) return
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) return
 
     for (var pos of Object.values(positions).slice().reverse()) {
         if (pos.collision()) {
@@ -228,6 +231,11 @@ dblclick(event) {
 mousedown(event) {
     if (startDrawType) {
         newPosition(startDrawType)
+        if (event) event.__toolCaptured = true
+        return
+    }
+
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) {
         return
     }
 
@@ -275,6 +283,12 @@ mousemove(event) {
 }
 
 keydown(event) {
+    if (event.code === 'Escape' && startDrawType) {
+        startDrawType = null
+        $events.emit('hub:set-drawing-tool', null)
+        return
+    }
+
     if (event.code === 'Backspace' || event.code === 'Delete') {
         let s = Object.values(positions).find(x => x.selected)
         if (s) removePosition(s.data.uuid)
