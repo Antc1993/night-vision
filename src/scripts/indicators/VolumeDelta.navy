@@ -1,0 +1,50 @@
+// Navy ~ 0.2-lite
+// <ds>Volume Delta (Order Flow)</ds>
+
+[INDICATOR name=VolumeDelta, version=1.0.0]
+
+prop('colorVolUp', { type: 'color', def: '#26a69a66' })
+prop('colorVolDw', { type: 'color', def: '#ef535066' })
+prop('colorVolDeltaUp', { type: 'color', def: '#26a69a' })
+prop('colorVolDeltaDw', { type: 'color', def: '#ef5350' })
+prop('barsHeight', { type: 'number', def: 0.85 })
+
+let $ = $props
+
+this.specs = {
+    name: 'Volume Delta',
+    props: {
+        colorVolUp: $.colorVolUp,
+        colorVolDw: $.colorVolDw,
+        colorVolDeltaUp: $.colorVolDeltaUp,
+        colorVolDeltaDw: $.colorVolDeltaDw,
+        barsHeight: $.barsHeight
+    }
+}
+
+[UPDATE]
+
+let o = open[0]
+let h = high[0]
+let l = low[0]
+let c = close[0]
+let v = vol[0] !== undefined ? vol[0] : 0
+
+// Calculate intra-bar volume delta (Order Flow approximation when tick data is not directly streamed)
+let rng = h - l
+let buyRatio = 0.5
+if (rng > 0) {
+    let bodyRatio = (c - o) / rng
+    let posRatio = (c - l) / rng
+    buyRatio = Math.max(0, Math.min(1, 0.5 + 0.3 * bodyRatio + 0.2 * (posRatio - 0.5)))
+} else if (c >= o) {
+    buyRatio = 0.6
+} else {
+    buyRatio = 0.4
+}
+
+let buyVol = Math.round(v * buyRatio)
+let sellVol = v - buyVol
+let delta = buyVol - sellVol
+
+VolumeDelta([buyVol, sellVol, v, delta], this.specs)

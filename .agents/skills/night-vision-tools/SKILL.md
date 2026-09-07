@@ -177,6 +177,25 @@ Cada herramienta consta de 3 capas esenciales:
   3. **Recepción en `FloatingToolbar.svelte`**:
      - En `onSelection(data)`: si `data.openSettings === true`, activar `settingsOpen = true`, `activeTab = "style"` y centrar `modalX` / `modalY`.
 
+### ⚠️ Regla 9: Prevención de Colisiones y Bloqueo de Dibujos Subyacentes (`isDrawingMode`)
+- **Problema**: Al hacer clic para colocar el punto 1 o punto 2/3 de un dibujo, si el cursor está sobre otro dibujo ya trazado previamente en el gráfico, la propagación secuencial de capas en `Grid.svelte` hacía que el dibujo subyacente detectara `collision()`, iniciara arrastre (`isDragging = true`) o marcara `event.__toolCaptured = true`, bloqueando el asentamiento del nuevo punto y moviendo la figura anterior.
+- **Solución Arquitectónica (`dataHub.js`)**:
+  1. **Estado Global en Hub**:
+     - `hub.drawingTool`: tipo de herramienta actualmente armada desde la barra (e.g. `'line'`, `'rectangle'`, etc.) o `null` al desarmar/seleccionar cursor.
+     - `hub.drawingInProgress`: booleano que indica si hay un dibujo activo entre el punto 1 y su conclusión.
+     - `hub.isDrawingMode()`: retorna `!!(this.drawingTool || this.drawingInProgress)`.
+  2. **Bloqueo en Pines Asentados y Primitivos**:
+     - En `Pin.js`, si `this.state === 'settled'` y `hub.isDrawingMode()` es `true`, `mousedown()` y `mousemove()` retornan de inmediato sin modificar el cursor ni iniciar arrastre.
+     - Al asentar un pin en tracking, se usa `trackingPin.mousedown(event, true)` (`force = true`) para garantizar que se asiente independientemente de flags de eventos.
+     - Todos los primitivos en `navyLib` comprueban `isDrawingMode()` en `mousedown`, `mousemove` y `dblclick`.
+  3. **Control en Overlays (`.navy`)**:
+     - En `new*()`: emitir `$events.emit('hub:set-drawing-in-progress', true)` (o `false` para herramientas de 1 clic) y marcar `event.__toolCaptured = true`.
+     - En `mousedown()`:
+       - Si la herramienta está armada (`startDrawTool`), crear la figura y marcar `event.__toolCaptured = true`.
+       - Si hay un trazo en progreso (`isDrawing`), asentar el punto y marcar `event.__toolCaptured = true`.
+       - Si `hub.isDrawingMode()` es `true`, **retornar inmediatamente** para no interferir con la herramienta activa.
+     - En `keydown()`: si se presiona `Escape`, limpiar el trazo en progreso, liberar el `scroll-lock` y emitir `hub:set-drawing-in-progress: false` y `hub:set-drawing-tool: null`.
+
 ---
 
 ## 4. Plantilla para Crear una Nueva Herramienta
@@ -185,12 +204,14 @@ Cada herramienta consta de 3 capas esenciales:
    - Constructor recibe `(core, data, nw = false)`.
    - Inicializa `this.pins = [ new core.lib.Pin(core, this, 'p1'), ... ]`.
    - Implementa `draw(ctx)`, `collision(x, y)`, `drawText(ctx, text, sett)`.
+   - Consulta `this.core.hub?.isDrawingMode()` en `mousedown()` y `mousemove()` antes de permitir hover o arrastre.
 2. **Exportar en `src/core/navy/overlayEnv.js`**:
    - Importar `<MiTool>` y agregarlo a `this.lib`.
 3. **Crear Overlay en `src/scripts/tools/<MiToolTool>.navy`**:
    - Manejar colección `tools = {}`.
    - Escuchar `$core.uuid + ':tool-<nombre>'`, `$core.uuid + ':update-settings'`, `$core.uuid + ':delete-tool'`.
    - Usar las fórmulas seguras de `t` y `$` (Reglas 2 y 3).
+   - Bloquear eventos si `isDrawingMode()` está activo (Regla 9).
 4. **Agregar a `DEFAULT_TOOLS` en `src/core/dataHub.js`**:
    - Asegura la auto-inyección en todos los paneles.
 5. **Integrar en `DrawingToolbar.svelte` y `FloatingToolbar.svelte`**:

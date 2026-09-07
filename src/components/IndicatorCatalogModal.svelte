@@ -72,6 +72,15 @@
             isOverlay: false
         },
         {
+            type: "VWAP",
+            name: "Volume Weighted Average Price (VWAP)",
+            category: "trend",
+            catLabel: "Tendencia / Volumen",
+            desc: "Precio promedio ponderado por volumen con reinicio por sesión y bandas de desviación estándar.",
+            pane: "main",
+            isOverlay: false
+        },
+        {
             type: "SWMA",
             name: "Symmetrically Weighted Moving Average",
             category: "trend",
@@ -309,7 +318,7 @@
             catLabel: "Volumen",
             desc: "Histograma diferencial de volumen comprador vs vendedor (Order Flow Delta).",
             pane: "new",
-            isOverlay: true
+            isOverlay: false
         }
     ];
 

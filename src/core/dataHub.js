@@ -482,7 +482,7 @@ class DataHub {
 
     async addIndicator(type, props = {}, isOverlay = false, targetPane = 'auto') {
         const MAIN_OVERLAY_TYPES = [
-            'SMA', 'EMA', 'HMA', 'ALMA', 'SWMA', 'VWMA', 'SAR', 'Ichimoku', 'Ribbon',
+            'SMA', 'EMA', 'HMA', 'ALMA', 'SWMA', 'VWMA', 'VWAP', 'SAR', 'Ichimoku', 'Ribbon',
             'BB', 'KC', 'SuperBands', 'Band', 'Spline', 'Splines', 'Cloud', 'CandlesPlus',
             'Trades', 'ArrowTrades', 'PriceLabels'
         ]

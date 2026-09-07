@@ -71,6 +71,8 @@ NightVision includes 27+ built-in indicators with pre-compiled math in its stand
 | **ALMA** | `alma(source, length, offset, sigma)` | `close, 9, 0.85, 6` |
 | **SWMA** | `swma(source)` | Symmetrical weighted MA over 4 bars |
 | **VWMA** | `vwma(source, length)` | `close, 14` |
+| **VWAP** | `vwap(source, anchor)` | `hlc3, 'Day'` (devuelve `[vwap, stdev]`) |
+| **VolumeDelta** | `VolumeDelta(data, specs)` | `[buyVol, sellVol, total, delta]` |
 | **RSI** | `rsi(source, length)` | `close, 14` |
 | **MACD** | `macd(source, fast, slow, signal)` | `close, 12, 26, 9` |
 | **BB** | `bb(source, length, stdDev)` | `close, 20, 2` |

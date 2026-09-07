@@ -1554,6 +1554,73 @@ export default class ScriptStd {
         return this.ts(res, id+'4', src.__tf__)
     }
 
+    /** Volume Weighted Average Price
+     * @param {TS} [src] - Input source (default: hlc3)
+     * @param {string} [anchor] - Anchor period: 'Day' | 'Week' | 'Month' (default: 'Day')
+     * @return {Array<TS>} - [vwap, stdev]
+     */
+    vwap(src, anchor = 'Day', _id) {
+        let id = this._tsid(_id, `vwap(${anchor})`)
+        let vol = this.env.shared.vol
+        let t = this.env.shared.t
+        let prevT = t(1)
+        let currT = t(0)
+
+        // Session reset detection
+        let isNew = false
+        if (prevT) {
+            let d1 = new Date(prevT)
+            let d2 = new Date(currT)
+            if (anchor === 'Day' || anchor === 'Session') {
+                isNew = d1.getUTCDate() !== d2.getUTCDate() || d1.getUTCMonth() !== d2.getUTCMonth() || d1.getUTCFullYear() !== d2.getUTCFullYear()
+            } else if (anchor === 'Week') {
+                let w1 = this.weekofyear(prevT)
+                let w2 = this.weekofyear(currT)
+                isNew = w1 !== w2 || d1.getUTCFullYear() !== d2.getUTCFullYear()
+            } else if (anchor === 'Month') {
+                isNew = d1.getUTCMonth() !== d2.getUTCMonth() || d1.getUTCFullYear() !== d2.getUTCFullYear()
+            }
+        }
+
+        let p = (src && src[0] !== undefined) ? src[0] : (
+            (this.env.shared.high[0] + this.env.shared.low[0] + this.env.shared.close[0]) / 3
+        )
+        let v = (vol && vol[0] !== undefined && !isNaN(vol[0])) ? vol[0] : 1
+
+        let sumPv = this.ts(0, id + '_pv')
+        let sumV = this.ts(0, id + '_v')
+        let sumDev = this.ts(0, id + '_dev')
+
+        let prevPv = (sumPv[1] !== undefined && !isNaN(sumPv[1])) ? sumPv[1] : 0
+        let prevV = (sumV[1] !== undefined && !isNaN(sumV[1])) ? sumV[1] : 0
+        let prevDev = (sumDev[1] !== undefined && !isNaN(sumDev[1])) ? sumDev[1] : 0
+
+        if (isNew || prevV === 0) {
+            sumPv[0] = p * v
+            sumV[0] = v
+        } else {
+            sumPv[0] = prevPv + p * v
+            sumV[0] = prevV + v
+        }
+
+        let vwapVal = sumV[0] > 0 ? (sumPv[0] / sumV[0]) : p
+
+        let diff = p - vwapVal
+        if (isNew || prevV === 0) {
+            sumDev[0] = v * diff * diff
+        } else {
+            sumDev[0] = prevDev + v * diff * diff
+        }
+
+        let variance = sumV[0] > 0 ? (sumDev[0] / sumV[0]) : 0
+        let stdev = Math.sqrt(Math.max(0, variance))
+
+        let vwapTs = this.ts(vwapVal, id + '_val')
+        let devTs = this.ts(stdev, id + '_stdev')
+
+        return [vwapTs, devTs]
+    }
+
     /** Week of year, literally
      * @param {number} [time] - Time in ms (current t, if not defined)
      * @return {number} - Week

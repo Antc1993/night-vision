@@ -1,0 +1,54 @@
+// Navy ~ 0.2-lite
+// <ds>Volume Weighted Average Price with Standard Deviation Bands</ds>
+
+[INDICATOR name=VWAP, version=1.0.0]
+
+prop('anchor', { type: 'string', def: 'Day' })
+prop('showBands', { type: 'boolean', def: true })
+prop('mult', { type: 'number', def: 1.0, step: 0.5 })
+prop('color', { type: 'color', def: '#ff9800' })
+prop('bandColor', { type: 'color', def: '#2962ff' })
+prop('backColor', { type: 'color', def: '#2962ff18' })
+prop('lineWidth', { type: 'integer', def: 2 })
+prop('prec', { type: 'integer', def: autoPrec() })
+prop('zIndex', { type: 'integer', def: 1 })
+
+let $ = $props
+
+this.specs = {
+    name: `VWAP (${$.anchor})`,
+    props: {
+        color: $.color,
+        lineWidth: $.lineWidth
+    },
+    settings: {
+        precision: $.prec,
+        zIndex: $.zIndex
+    }
+}
+
+this.bandSpecs = {
+    name: `VWAP Bands (${$.mult}σ)`,
+    props: {
+        color: $.bandColor,
+        backColor: $.backColor,
+        lineWidth: 1,
+        showMid: false
+    },
+    settings: {
+        precision: $.prec,
+        zIndex: $.zIndex - 1
+    }
+}
+
+[UPDATE]
+
+let [v, dev] = vwap(hlc3, $props.anchor)
+let vwapVal = v[0]
+let devVal = dev[0] * ($props.mult || 1.0)
+
+Spline(vwapVal, this.specs)
+
+if ($props.showBands && devVal > 0) {
+    Band([vwapVal + devVal, vwapVal, vwapVal - devVal], this.bandSpecs)
+}
