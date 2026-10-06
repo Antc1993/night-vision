@@ -11,6 +11,7 @@ import Events from '../core/events.js'
 import Utils from '../stuff/utils.js'
 import dpr from '../stuff/dprCanvas.js'
 import bb from '../core/primitives/botbar.js'
+import MetaHub from '../core/metaHub.js'
 
 export let props = {} // General props
 export let layout = {} // Grid layout
@@ -19,6 +20,7 @@ let bbUpdId = `botbar`
 let bbId = `${props.id}-botbar`
 let canvasId = `${props.id}-botbar-canvas`
 
+let meta = MetaHub.instance(props.id)
 let events = Events.instance(props.id)
 
 // EVENT INTERFACE
@@ -34,21 +36,106 @@ $:bbStyle = `
 let canvas // Canvas ref
 let ctx // Canvas context
 let showPanel = true
+let mc // Hammer Manager
+let drug // Dragging state
 
 $:width = (layout.botbar || {}).width
 $:resizeWatch(width)
 
-onMount(() => { setup() })
+onMount(async () => { await setup() })
 onDestroy(() => {
     events.off(`${bbUpdId}`)
+    if (mc) mc.destroy()
 })
 
-function setup() {
+async function setup() {
     let botbar = layout.botbar;
     [canvas, ctx] = dpr.setup(
         canvasId, botbar.width, botbar.height)
 
     update()
+    await listeners()
+}
+
+async function listeners() {
+    if (!canvas) return
+    const Hammer = (await import('hammerjs')).default || (await import('hammerjs'))
+    mc = new Hammer.Manager(canvas)
+    mc.add(new Hammer.Pan({
+        direction: Hammer.DIRECTION_HORIZONTAL,
+        threshold: 0
+    }))
+
+    mc.add(new Hammer.Tap({
+        event: 'doubletap',
+        taps: 2,
+        posThreshold: 50
+    }))
+
+    mc.on('panstart', event => {
+        if (meta && meta.scrollLock) return
+        if (!props.range || props.range.length < 2) return
+
+        let initialRange = props.range.slice()
+        let initialDt = initialRange[1] - initialRange[0]
+        if (initialDt <= 0) return
+
+        let rect = canvas.getBoundingClientRect()
+        let clickX = event.center.x - rect.left
+        let totalW = (layout.botbar && layout.botbar.width) || layout.width || 800
+        let ratio = Math.max(0, Math.min(clickX / totalW, 1))
+
+        let x2timeFn = layout.x2time || layout.x2t
+        let tAnchor = x2timeFn ? x2timeFn.call(layout, clickX) : (initialRange[0] + initialDt * ratio)
+
+        drug = {
+            startX: event.center.x,
+            clickX,
+            ratio,
+            tAnchor,
+            initialRange,
+            initialDt,
+            width: totalW
+        }
+    })
+
+    mc.on('panmove', event => {
+        if (meta && meta.scrollLock) {
+            drug = null
+            return
+        }
+        if (!drug) return
+
+        let deltaX = event.center.x - drug.startX
+        // In TradingView: dragging right compresses dt (spreads/zooms in candles), dragging left expands dt (zooms out)
+        let factor = (deltaX / drug.width) * 2.5
+        let k = Math.exp(factor)
+        let newDt = drug.initialDt / k
+
+        let interval = props.interval || 60000
+        let minZoom = props.config?.MIN_ZOOM || 10
+        let maxZoom = props.config?.MAX_ZOOM || 2500
+        if (Utils.isMobile) minZoom *= 0.5
+
+        let isIb = layout.indexBased || (layout.hub && layout.hub.indexBased)
+        let minRange = isIb ? 5 : Math.max(interval * minZoom, 1000)
+        let maxRange = isIb ? 100000 : Math.max(interval * maxZoom, minRange * 100)
+
+        newDt = Utils.clamp(newDt, minRange, maxRange)
+
+        let newR0 = Math.round(drug.tAnchor - newDt * drug.ratio)
+        let newR1 = Math.round(drug.tAnchor + newDt * (1 - drug.ratio))
+
+        events.emit('range-changed', [newR0, newR1])
+    })
+
+    mc.on('panend', () => {
+        drug = null
+    })
+
+    mc.on('doubletap', () => {
+        events.emitSpec('chart', 'full-update', { resetRange: true })
+    })
 }
 
 function update($layout = layout) {
@@ -86,7 +173,14 @@ function resizeWatch() {
 
 </script>
 <style>
-.nvjs-botbar {}
+.nvjs-botbar {
+    cursor: ew-resize;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.nvjs-botbar canvas {
+    cursor: ew-resize;
+}
 </style>
 <div class="nvjs-botbar" id={bbId} style={bbStyle}>
     <canvas id={canvasId}></canvas>

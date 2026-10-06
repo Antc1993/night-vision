@@ -23,7 +23,7 @@ export default {
     // Start of the day (zero millisecond)
     dayStart(t) {
         let start = new Date(t)
-        return start.setUTCHours(0,0,0,0)
+        return start.setUTCHours(0, 0, 0, 0)
     },
 
     // Start of the month
@@ -119,7 +119,7 @@ export default {
         let len = Math.min(data.length - 1, 99)
         let min = Infinity
         data.slice(0, len).forEach((x, i) => {
-            let d = data[i+1][0] - x[0]
+            let d = data[i + 1][0] - x[0]
             if (d === d && d < min) min = d
         })
         // This saves monthly chart from being awkward
@@ -137,7 +137,7 @@ export default {
             let res = ia.getRange(t1, t2)
             let i0 = ia.valpos[t1].next
             return [res, i0]
-        } catch(e) {
+        } catch (e) {
             // Something wrong with fancy slice lib
             // Fast fix: fallback to filter
             return [arr.filter(x =>
@@ -160,8 +160,8 @@ export default {
             ia.fetch(t2)
             let finish = ia.cursor || ia.nextlow
 
-            return [start, finish+1]
-        } catch(e) {
+            return [start, finish + 1]
+        } catch (e) {
             // Something wrong with fancy slice lib
             // Fast fix: fallback to filter
             let subset = arr.filter(x =>
@@ -177,9 +177,9 @@ export default {
     // Fast filter (index-based)
     fastFilterIB(arr, t1, t2) {
         if (!arr.length) return [undefined, undefined]
-        let i1 =  Math.floor(t1)
+        let i1 = Math.floor(t1)
         if (i1 < 0) i1 = 0
-        let i2 =  Math.floor(t2 + 1)
+        let i2 = Math.floor(t2 + 1)
         //let res = arr.slice(i1, i2)
         return [i1, i2]
     },
@@ -279,7 +279,7 @@ export default {
                 el.style.top = '-1000px'
                 base.appendChild(el)
             }
-            if(ctx.font) el.style.font = ctx.font
+            if (ctx.font) el.style.font = ctx.font
             el.innerText = text.replace(/ /g, '.');
             return { width: el.offsetWidth }
         } else {
@@ -290,11 +290,11 @@ export default {
     uuid(temp = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx') {
         return temp
             .replace(/[xy]/g, c => {
-            var r = Math.random() * 16 | 0, v = c == 'x' ?
-                r :
-                (r & 0x3 | 0x8)
-            return v.toString(16)
-        })
+                var r = Math.random() * 16 | 0, v = c == 'x' ?
+                    r :
+                    (r & 0x3 | 0x8)
+                return v.toString(16)
+            })
     },
 
     uuid2() {
@@ -534,7 +534,7 @@ export default {
     // Adjust mouse coords to fix the shift caused by 
     // css transforms
     adjustMouse(event, canvas) {
-       
+
         const rect = canvas.getBoundingClientRect();
 
         // Calculate the adjusted coordinates
@@ -572,7 +572,7 @@ export default {
             D = now.getUTCDay(),
             Y = now.getUTCFullYear();
 
-        let rt; 
+        let rt;
 
         switch (tf) {
             case MINUTE:
@@ -622,11 +622,11 @@ export default {
 
     // WTF with modern web development
     isMobile: (w => 'onorientationchange' in w &&
-       (!!navigator.maxTouchPoints ||
-        !!navigator.msMaxTouchPoints ||
-        ('ontouchstart' in w ||
-        (w.DocumentTouch &&
-        document instanceof w.DocumentTouch))))
+        (!!navigator.maxTouchPoints ||
+            !!navigator.msMaxTouchPoints ||
+            ('ontouchstart' in w ||
+                (w.DocumentTouch &&
+                    document instanceof w.DocumentTouch))))
         (typeof window !== 'undefined' ? window : {})
 
 }

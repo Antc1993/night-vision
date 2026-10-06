@@ -196,6 +196,14 @@ Cada herramienta consta de 3 capas esenciales:
        - Si `hub.isDrawingMode()` es `true`, **retornar inmediatamente** para no interferir con la herramienta activa.
      - En `keydown()`: si se presiona `Escape`, limpiar el trazo en progreso, liberar el `scroll-lock` y emitir `hub:set-drawing-in-progress: false` y `hub:set-drawing-tool: null`.
 
+### ⚠️ Regla 10: Acceso a Velas en Herramientas de Medición / Rango (`getCandles`)
+- **Problema**: Dentro del contexto de un overlay de dibujo (`MeasureTool`), `$core.dataSubset` y `$core.data` corresponden a la propia herramienta de dibujo (donde residen los objetos de dibujo o arrays vacíos), **nunca** a las velas del gráfico principal. Intentar leer `this.core.dataSubset` para contar barras o sumar volumen siempre retornará un array vacío, dejando el conteo clavado en 1 barra o 0 volumen.
+- **Solución**:
+  - Obtener las velas reales a través del hub: `this.core.hub?.mainOv?.data` (o buscando overlays con `ov.main === true` o tipo que contenga `'candle'` en `hub.chart.overlays` y `hub.data.panes`).
+  - Utilizar búsqueda binaria (`findNearestIndex`) $O(\log N)$ para ubicar `idx1` y `idx2` correspondientes a `minT` y `maxT`.
+  - Conteo inclusivo de barras: `barsCount = (idx2 - idx1) + 1` (más extrapolación si el rango sobrepasa los límites del dataset hacia el pasado o futuro).
+  - Si se arrastra hacia la izquierda (`p2[0] < p1[0]`), mostrar valores negativos (`-15 barras, -1h 15m`) siguiendo el estándar TradingView.
+
 ---
 
 ## 4. Plantilla para Crear una Nueva Herramienta

@@ -352,7 +352,14 @@ function onMouseLeave() {
 
 </script>
 <style>
-.nvjs-sidebar {}
+.nvjs-sidebar {
+    cursor: ns-resize;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.nvjs-sidebar canvas {
+    cursor: ns-resize;
+}
 </style>
 <div id={sbId} style={sbStyle} class="nvjs-sidebar"
     on:click={onClick}

@@ -45,20 +45,80 @@ export default class Measure {
         return color
     }
 
-    formatDuration(ms) {
+    getCandles() {
+        const hub = this.core.hub
+        if (hub) {
+            if (hub.mainOv && Array.isArray(hub.mainOv.data) && hub.mainOv.data.length) {
+                return hub.mainOv.data
+            }
+            if (hub.chart && Array.isArray(hub.chart.overlays)) {
+                for (const ov of hub.chart.overlays) {
+                    if (ov.main || (ov.type && ov.type.toLowerCase().includes('candle'))) {
+                        if (Array.isArray(ov.data) && ov.data.length) return ov.data
+                    }
+                }
+            }
+            const panes = hub.data && Array.isArray(hub.data.panes) ? hub.data.panes : []
+            for (const pane of panes) {
+                for (const ov of pane.overlays || []) {
+                    if (ov.main || (ov.type && ov.type.toLowerCase().includes('candle'))) {
+                        if (Array.isArray(ov.data) && ov.data.length) return ov.data
+                    }
+                }
+            }
+            if (panes[0] && panes[0].overlays && panes[0].overlays[0] && Array.isArray(panes[0].overlays[0].data) && panes[0].overlays[0].data.length) {
+                return panes[0].overlays[0].data
+            }
+        }
+        if (Array.isArray(this.core.dataSubset) && this.core.dataSubset.length) {
+            return this.core.dataSubset
+        }
+        if (Array.isArray(this.core.data) && this.core.data.length) {
+            return this.core.data
+        }
+        return []
+    }
+
+    findNearestIndex(arr, t) {
+        if (!arr || !arr.length) return -1
+        let low = 0
+        let high = arr.length - 1
+        if (t <= arr[0][0]) return 0
+        if (t >= arr[high][0]) return high
+
+        while (low <= high) {
+            let mid = Math.floor((low + high) / 2)
+            let midT = arr[mid][0]
+            if (midT === t) return mid
+            if (midT < t) {
+                low = mid + 1
+            } else {
+                high = mid - 1
+            }
+        }
+        let distLow = Math.abs(arr[low][0] - t)
+        let distHigh = Math.abs(arr[high][0] - t)
+        return distLow < distHigh ? low : high
+    }
+
+    formatDuration(ms, isLeft = false) {
         if (ms <= 0) return '0m'
         const totalSec = Math.floor(ms / 1000)
         const days = Math.floor(totalSec / 86400)
         const hours = Math.floor((totalSec % 86400) / 3600)
         const mins = Math.floor((totalSec % 3600) / 60)
 
+        let str = ''
         if (days > 0) {
-            return `${days}d ${hours}h`
+            str = `${days}d ${hours}h`
+        } else if (hours > 0) {
+            str = `${hours}h ${mins}m`
+        } else if (mins > 0) {
+            str = `${mins}m`
+        } else {
+            str = `${totalSec}s`
         }
-        if (hours > 0) {
-            return `${hours}h ${mins}m`
-        }
-        return `${mins}m`
+        return isLeft ? `-${str}` : str
     }
 
     formatVol(vol) {
@@ -156,22 +216,55 @@ export default class Measure {
         const minT = Math.min(p1[0], p2[0])
         const maxT = Math.max(p1[0], p2[0])
         const timeDiff = maxT - minT
+        const isLeft = p2[0] < p1[0]
 
         let barsCount = 0
         let totalVol = 0
 
-        // Count candles in range from dataset
-        const dataSet = this.core.dataSubset || this.core.data || []
-        for (const item of dataSet) {
-            if (Array.isArray(item)) {
-                const t = item[0]
-                if (t >= minT && t <= maxT) {
-                    barsCount++
-                    if (item[5] != null) totalVol += item[5]
+        const candles = this.getCandles()
+
+        if (candles && candles.length > 0) {
+            let idx1 = this.findNearestIndex(candles, minT)
+            let idx2 = this.findNearestIndex(candles, maxT)
+
+            if (idx1 !== -1 && idx2 !== -1) {
+                if (idx1 > idx2) {
+                    let tmp = idx1
+                    idx1 = idx2
+                    idx2 = tmp
+                }
+
+                // Sum volume of all candles within the measured range
+                for (let i = idx1; i <= idx2; i++) {
+                    const item = candles[i]
+                    if (item && item[5] != null && !isNaN(item[5])) {
+                        totalVol += item[5]
+                    }
+                }
+
+                barsCount = (idx2 - idx1) + 1
+
+                // If range extends beyond dataset ends into future or past:
+                const interval = this.core.props?.interval || (candles.length > 1 ? Math.max(1, candles[1][0] - candles[0][0]) : 60000)
+                const lastCandleT = candles[candles.length - 1][0]
+                if (maxT > lastCandleT + interval * 0.5) {
+                    barsCount += Math.round((maxT - lastCandleT) / interval)
+                }
+                const firstCandleT = candles[0][0]
+                if (minT < firstCandleT - interval * 0.5) {
+                    barsCount += Math.round((firstCandleT - minT) / interval)
                 }
             }
         }
-        if (barsCount === 0) barsCount = 1
+
+        // Fallback calculation if candle array was empty
+        if (barsCount <= 0) {
+            const interval = this.core.props?.interval || 60000
+            barsCount = timeDiff > 0 ? Math.max(1, Math.round(timeDiff / interval) + 1) : 1
+        }
+
+        const displayBars = (isLeft && barsCount > 1) ? -barsCount : barsCount
+        const displayDuration = this.formatDuration(timeDiff, isLeft && barsCount > 1)
 
         const prec = layout.prec ?? 2
         const diffPercent = startPrice !== 0 ? (diffPrice / Math.abs(startPrice)) * 100 : 0
@@ -179,17 +272,29 @@ export default class Measure {
         const formattedPercent = (diffPercent > 0 ? '+' : '') + diffPercent.toFixed(2) + '%'
 
         const line1 = `${sign}${diffPrice.toLocaleString(undefined, { minimumFractionDigits: prec, maximumFractionDigits: prec })} (${formattedPercent})`
-        const line2 = `${barsCount} barras, ${this.formatDuration(timeDiff)}`
+        const line2 = `${displayBars} barras, ${displayDuration}`
         const line3 = totalVol > 0 ? `Vol. ${this.formatVol(totalVol)}` : null
 
         // 5. Draw Information Badge
-        const badgeWidth = Math.max(160, Math.min(width, 240))
+        ctx.save()
+        ctx.font = 'bold 12px sans-serif'
+        const w1 = ctx.measureText(line1).width
+        ctx.font = '11px sans-serif'
+        const w2 = ctx.measureText(line2).width
+        const w3 = line3 ? ctx.measureText(line3).width : 0
+        ctx.restore()
+
+        const maxTextW = Math.max(w1, w2, w3)
+        const badgeWidth = Math.max(160, Math.round(maxTextW + 30))
         const badgeHeight = line3 ? 56 : 42
-        const badgeX = Math.min(Math.max(minX + (width - badgeWidth) / 2, 10), (layout.width || 800) - badgeWidth - 10)
+        const badgeX = Math.min(Math.max(minX + (width - badgeWidth) / 2, 8), (layout.width || 800) - badgeWidth - 8)
         
         let badgeY = maxY + 8
-        if (badgeY + badgeHeight > (layout.height || 600) - 10) {
+        if (badgeY + badgeHeight > (layout.height || 600) - 8) {
             badgeY = minY - badgeHeight - 8
+        }
+        if (badgeY < 8) {
+            badgeY = 8
         }
 
         // Rounded badge rectangle
