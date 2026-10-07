@@ -11,6 +11,9 @@ import DataView$ from './dataView.js'
 const DEFAULT_TOOLS = [
     { name: 'RectTool', type: 'RectTool' },
     { name: 'TriangleTool', type: 'TriangleTool' },
+    { name: 'CircleTool', type: 'CircleTool' },
+    { name: 'EllipseTool', type: 'EllipseTool' },
+    { name: 'ArcTool', type: 'ArcTool' },
     { name: 'PathTool', type: 'PathTool' },
     { name: 'LineTool', type: 'LineTool' },
     { name: 'FibonacciRetracementTool', type: 'FibonacciRetracementTool' },

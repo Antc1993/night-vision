@@ -1,0 +1,268 @@
+// Navy ~ 0.2-lite
+// <ds>Drawing 3-point arcs [3 clicks: Start, End, Curvature]</ds>
+
+[OVERLAY name = ArcTool, ctx = Canvas, version = 1.0.0]
+
+let timeId = null
+let mouseX = 0
+let arcs = {} // Arc objects stored by uuid
+let startDrawTool = false
+
+init() {
+    // Restore arcs from dataExt
+    for (var a of $core.dataExt.arcs || []) {
+        arcs[a.uuid] = new $lib.Arc($core, a, a.isDrawing || false)
+        arcs[a.uuid].onSelect = arcSelected
+        if (a.isDrawing) {
+            arcs[a.uuid].selected = true
+        }
+    }
+
+    const handleToolArc = event => {
+        startDrawTool = true
+    }
+    $events.on($core.uuid + ':tool-arc', handleToolArc)
+    if ($core.dataExt && $core.dataExt.uuid) {
+        $events.on($core.dataExt.uuid + ':tool-arc', handleToolArc)
+    }
+
+    $events.on($core.uuid + ':tool-started', activeUuid => {
+        if (activeUuid !== $core.uuid) {
+            startDrawTool = false
+        }
+    })
+
+    $events.on($core.uuid + ':delete-tool', uuid => {
+        if (arcs[uuid]) removeArc(uuid)
+    })
+
+    $events.on('delete-all-tools', () => {
+        for (var uuid in arcs) {
+            delete arcs[uuid]
+        }
+        $core.dataExt.arcs = []
+        $events.emit('update-layout')
+        $events.emit('selection-event', null)
+    })
+
+    $events.on($core.uuid + ':selection-event', data => {
+        if (data && data.overlayUuid !== $core.uuid) {
+            let changed = false
+            for (var uuid in arcs) {
+                if (arcs[uuid].selected) {
+                    arcs[uuid].selected = false
+                    changed = true
+                }
+            }
+            if (changed) $events.emit('update-layout')
+        }
+    })
+
+    $events.on($core.uuid + ':update-settings', data => {
+        const { uuid, settings, p1, p2, p3 } = data
+        if (arcs[uuid]) {
+            if (settings) {
+                arcs[uuid].data.settings = Object.assign(arcs[uuid].data.settings || {}, settings)
+            }
+            if (p1 && arcs[uuid].pins[0]) {
+                arcs[uuid].data.p1 = p1
+                arcs[uuid].pins[0].t = p1[0]
+                arcs[uuid].pins[0].y$ = p1[1]
+            }
+            if (p2 && arcs[uuid].pins[1]) {
+                arcs[uuid].data.p2 = p2
+                arcs[uuid].pins[1].t = p2[0]
+                arcs[uuid].pins[1].y$ = p2[1]
+            }
+            if (p3 && arcs[uuid].pins[2]) {
+                arcs[uuid].data.p3 = p3
+                arcs[uuid].pins[2].t = p3[0]
+                arcs[uuid].pins[2].y$ = p3[1]
+            }
+            const d = $core.dataExt.arcs.find(x => x.uuid === uuid)
+            if (d) {
+                if (settings) d.settings = Object.assign(d.settings || {}, settings)
+                if (p1) d.p1 = p1
+                if (p2) d.p2 = p2
+                if (p3) d.p3 = p3
+            }
+            $events.emit('update-layout')
+        }
+    })
+}
+
+draw(ctx) {
+    for (var a of Object.values(arcs)) {
+        a.draw(ctx)
+    }
+}
+
+newArc() {
+    if (!$core.dataExt.arcs) {
+        $core.dataExt.arcs = []
+    }
+
+    const cursor = $core.cursor || {}
+    const mouse = $core.mouse || {}
+    const layout = $core.layout
+
+    const cx = cursor.x !== undefined ? cursor.x : (mouse.x !== undefined ? mouse.x : 0)
+    const cy = cursor.y !== undefined ? cursor.y : (mouse.y !== undefined ? mouse.y : 0)
+
+    const x2tFn = layout ? (layout.x2time || layout.x2t) : null
+    let t = (cursor.time != null && !isNaN(cursor.time)) ? cursor.time : cursor.ti
+    if ((t == null || isNaN(t)) && x2tFn) t = x2tFn.call(layout, cx)
+    let $ = layout ? layout.y2value(cy) : 0
+    let uuid = $lib.Utils.uuid3()
+
+    let a = {
+        type: 'arc',
+        p1: [t, $],
+        p2: [t, $],
+        p3: [t, $],
+        uuid: uuid,
+        isDrawing: true
+    }
+
+    $core.dataExt.arcs.push(a)
+    arcs[uuid] = new $lib.Arc($core, a, true)
+    arcs[uuid].onSelect = arcSelected
+    arcs[uuid].selected = false
+
+    $events.emit('tool-started', $core.uuid)
+    $events.emit('scroll-lock', true)
+    $events.emit('hub:set-drawing-in-progress', true)
+    $events.emit('update-layout')
+    startDrawTool = false
+    if (event) event.__toolCaptured = true
+}
+
+arcSelected($uuid, openSettings = false) {
+    let selectedArc = null
+    for (var uuid in arcs) {
+        arcs[uuid].selected = uuid === $uuid
+        if (arcs[uuid].selected) selectedArc = arcs[uuid]
+    }
+    $events.emit('update-layout')
+
+    if (selectedArc) {
+        $events.emit('selection-event', {
+            uuid: $uuid,
+            overlayUuid: $core.uuid,
+            type: 'arc',
+            settings: selectedArc.data.settings || {},
+            data: selectedArc.data,
+            x: $core.mouse ? $core.mouse.x : 0,
+            y: $core.mouse ? $core.mouse.y : 0,
+            gridOffset: $core.layout.sbMax[0],
+            paneOffset: $core.layout.offset,
+            openSettings: openSettings
+        })
+    } else {
+        $events.emit('selection-event', null)
+    }
+}
+
+removeArc(uuid) {
+    delete arcs[uuid]
+    if ($core.dataExt.arcs) {
+        $core.dataExt.arcs = $core.dataExt.arcs.filter(x => x.uuid !== uuid)
+    }
+    $events.emit('update-layout')
+}
+
+propagate(name, data) {
+    const list = (name === 'mousedown' || name === 'click') ? Object.values(arcs).slice().reverse() : Object.values(arcs)
+    for (var a of list) {
+        a[name](data)
+    }
+}
+
+mousedown(event) {
+    if (startDrawTool) {
+        newArc(event)
+        if (event) event.__toolCaptured = true
+        return
+    }
+
+    const drawingArc = Object.values(arcs).find(x => x.isDrawing || x.pins.some(p => p.state === 'tracking'))
+    if (drawingArc) {
+        drawingArc.mousedown(event)
+        if (event) event.__toolCaptured = true
+        return
+    }
+
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) {
+        return
+    }
+
+    if (event && (event.__toolCaptured || $lib.Utils.defaultPrevented(event))) {
+        return
+    }
+
+    if (event && event.detail === 2) {
+        for (var a of Object.values(arcs).slice().reverse()) {
+            if (a.collision() || (a.pins && a.pins.some(p => p.hover()))) {
+                arcSelected(a.data.uuid, true)
+                event.__toolCaptured = true
+                return
+            }
+        }
+    }
+
+    mouseX = $core.mouse ? $core.mouse.x : 0
+
+    let hit = false
+    for (var a of Object.values(arcs).slice().reverse()) {
+        if (a.collision() || (a.pins && a.pins.some(p => p.hover()))) {
+            hit = true
+            break
+        }
+    }
+
+    if (!hit) {
+        const hadSelected = Object.values(arcs).some(x => x.selected)
+        if (hadSelected) {
+            arcSelected(null)
+        }
+    }
+
+    $events.emit('update-layout')
+    propagate('mousedown', event)
+}
+
+mouseup(event) {
+    propagate('mouseup', event)
+}
+
+mousemove(event) {
+    propagate('mousemove', event)
+}
+
+dblclick(event) {
+    if ($core.hub?.isDrawingMode && $core.hub.isDrawingMode()) {
+        return
+    }
+    propagate('dblclick', event)
+}
+
+keydown(event) {
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+        const activeUuid = Object.keys(arcs).find(u => arcs[u].selected)
+        if (activeUuid) {
+            removeArc(activeUuid)
+            $events.emit('selection-event', null)
+        }
+    }
+    if (event.key === 'Escape') {
+        const drawingArc = Object.values(arcs).find(x => x.isDrawing)
+        if (drawingArc) {
+            removeArc(drawingArc.data.uuid)
+            $events.emit('scroll-lock', false)
+            $events.emit('hub:set-drawing-in-progress', false)
+            $events.emit('hub:set-drawing-tool', null)
+        }
+        startDrawTool = false
+        $events.emit('update-layout')
+    }
+}

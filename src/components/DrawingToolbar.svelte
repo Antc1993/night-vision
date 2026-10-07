@@ -23,13 +23,16 @@
         let drawings = 0;
         let indicators = 0;
         if (hub && hub.data && hub.data.panes) {
-            const toolTypes = ["RectTool", "TriangleTool", "PathTool", "LineTool", "FibonacciRetracementTool", "MeasureTool", "TextTool", "PositionTool"];
+            const toolTypes = ["RectTool", "TriangleTool", "CircleTool", "EllipseTool", "ArcTool", "PathTool", "LineTool", "FibonacciRetracementTool", "MeasureTool", "TextTool", "PositionTool"];
             for (var pane of hub.data.panes) {
                 for (var ov of pane.overlays || []) {
                     if (ov.dataExt) {
                         if (ov.dataExt.lines) drawings += ov.dataExt.lines.length;
                         if (ov.dataExt.rectangles) drawings += ov.dataExt.rectangles.length;
                         if (ov.dataExt.triangles) drawings += ov.dataExt.triangles.length;
+                        if (ov.dataExt.circles) drawings += ov.dataExt.circles.length;
+                        if (ov.dataExt.ellipses) drawings += ov.dataExt.ellipses.length;
+                        if (ov.dataExt.arcs) drawings += ov.dataExt.arcs.length;
                         if (ov.dataExt.paths) drawings += ov.dataExt.paths.length;
                         if (ov.dataExt.fibos) drawings += ov.dataExt.fibos.length;
                         if (ov.dataExt.measures) drawings += ov.dataExt.measures.length;
@@ -64,6 +67,12 @@
             events.emit("tool-line", subtype);
         } else if (type === "rectangle") {
             events.emit("tool-rectangle", "nada");
+        } else if (type === "circle") {
+            events.emit("tool-circle", "nada");
+        } else if (type === "ellipse") {
+            events.emit("tool-ellipse", "nada");
+        } else if (type === "arc") {
+            events.emit("tool-arc", "nada");
         } else if (type === "triangle") {
             events.emit("tool-triangle", "nada");
         } else if (type === "path") {
@@ -93,7 +102,7 @@
 
     function clearAllIndicators() {
         if (hub && hub.data && hub.data.panes) {
-            const toolTypes = ["RectTool", "LineTool", "FibonacciRetracementTool", "MeasureTool", "TextTool", "PositionTool"];
+            const toolTypes = ["RectTool", "TriangleTool", "CircleTool", "EllipseTool", "ArcTool", "PathTool", "LineTool", "FibonacciRetracementTool", "MeasureTool", "TextTool", "PositionTool"];
             if (hub.data.panes[0]) {
                 hub.data.panes[0].overlays = (hub.data.panes[0].overlays || []).filter(
                     ov => ov.main || toolTypes.includes(ov.type)
@@ -167,7 +176,13 @@
                     class:selected={activeTool === "segment"}
                     on:click={() => selectTool("line", "segment")}
                 >
-                    <span class="nvjs-flyout-icon">📏</span>
+                    <span class="nvjs-flyout-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="4" y1="20" x2="20" y2="4"></line>
+                            <circle cx="4" cy="20" r="2.5" fill="currentColor"></circle>
+                            <circle cx="20" cy="4" r="2.5" fill="currentColor"></circle>
+                        </svg>
+                    </span>
                     <span>Línea de tendencia</span>
                 </button>
                 <button
@@ -175,7 +190,12 @@
                     class:selected={activeTool === "horizontal"}
                     on:click={() => selectTool("line", "horizontal")}
                 >
-                    <span class="nvjs-flyout-icon">➖</span>
+                    <span class="nvjs-flyout-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="2" y1="12" x2="22" y2="12"></line>
+                            <circle cx="12" cy="12" r="2.5" fill="currentColor"></circle>
+                        </svg>
+                    </span>
                     <span>Línea horizontal</span>
                 </button>
                 <button
@@ -183,7 +203,12 @@
                     class:selected={activeTool === "vertical"}
                     on:click={() => selectTool("line", "vertical")}
                 >
-                    <span class="nvjs-flyout-icon">⏸️</span>
+                    <span class="nvjs-flyout-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="2" x2="12" y2="22"></line>
+                            <circle cx="12" cy="12" r="2.5" fill="currentColor"></circle>
+                        </svg>
+                    </span>
                     <span>Línea vertical</span>
                 </button>
                 <button
@@ -191,7 +216,13 @@
                     class:selected={activeTool === "ray"}
                     on:click={() => selectTool("line", "ray")}
                 >
-                    <span class="nvjs-flyout-icon">📐</span>
+                    <span class="nvjs-flyout-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="4" y1="20" x2="20" y2="4"></line>
+                            <circle cx="4" cy="20" r="2.5" fill="currentColor"></circle>
+                            <polyline points="14,4 20,4 20,10"></polyline>
+                        </svg>
+                    </span>
                     <span>Línea Semirrecta / Rayo</span>
                 </button>
             </div>
@@ -203,7 +234,7 @@
         <button
             class="nvjs-tb-btn"
             class:active={activeTool === "fibonacci"}
-            on:click={() => selectTool("fibonacci", "horizontal")}
+            on:click={() => selectTool("fibonacci", "nada")}
             title="Retroceso de Fibonacci"
         >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -216,17 +247,32 @@
         </button>
     </div>
 
-    <!-- 4. Geometric Shapes (Rectangle, Triangle) with Flyout Arrow -->
+    <!-- 4. Geometric Shapes (Rectangle, Circle, Ellipse, Arc, Triangle) with Flyout Arrow -->
     <div class="nvjs-tb-item-wrapper has-arrow">
         <button
             class="nvjs-tb-btn"
-            class:active={activeTool === "rectangle" || activeTool === "triangle"}
-            on:click={() => selectTool(activeTool === "triangle" ? "triangle" : "rectangle", "nada")}
+            class:active={["rectangle", "circle", "ellipse", "arc", "triangle"].includes(activeTool)}
+            on:click={() => selectTool(["circle", "ellipse", "arc", "triangle"].includes(activeTool) ? activeTool : "rectangle", "nada")}
             title="Figuras geométricas"
         >
             {#if activeTool === "triangle"}
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polygon points="12,4 21,20 3,20"></polygon>
+                </svg>
+            {:else if activeTool === "circle"}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="8"></circle>
+                </svg>
+            {:else if activeTool === "ellipse"}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <ellipse cx="12" cy="12" rx="9" ry="5"></ellipse>
+                </svg>
+            {:else if activeTool === "arc"}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 17 A 9 9 0 0 1 20 17"></path>
+                    <circle cx="4" cy="17" r="1.5" fill="currentColor"></circle>
+                    <circle cx="12" cy="8" r="1.5" fill="currentColor"></circle>
+                    <circle cx="20" cy="17" r="1.5" fill="currentColor"></circle>
                 </svg>
             {:else}
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -258,6 +304,45 @@
                         </svg>
                     </span>
                     <span>Rectángulo</span>
+                </button>
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "circle"}
+                    on:click={() => selectTool("circle", "nada")}
+                >
+                    <span class="nvjs-flyout-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="8"></circle>
+                        </svg>
+                    </span>
+                    <span>Círculo</span>
+                </button>
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "ellipse"}
+                    on:click={() => selectTool("ellipse", "nada")}
+                >
+                    <span class="nvjs-flyout-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <ellipse cx="12" cy="12" rx="9" ry="5"></ellipse>
+                        </svg>
+                    </span>
+                    <span>Elipse</span>
+                </button>
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "arc"}
+                    on:click={() => selectTool("arc", "nada")}
+                >
+                    <span class="nvjs-flyout-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 17 A 9 9 0 0 1 20 17"></path>
+                            <circle cx="4" cy="17" r="1.5" fill="currentColor"></circle>
+                            <circle cx="12" cy="8" r="1.5" fill="currentColor"></circle>
+                            <circle cx="20" cy="17" r="1.5" fill="currentColor"></circle>
+                        </svg>
+                    </span>
+                    <span>Arco (3 puntos)</span>
                 </button>
                 <button
                     class="nvjs-tb-flyout-item"
@@ -311,14 +396,28 @@
         <button
             class="nvjs-tb-btn"
             class:active={activeTool === "long" || activeTool === "short"}
-            on:click={() => selectTool("long", "long")}
-            title="Posición larga / corta"
+            on:click={() => selectTool(activeTool === "short" ? "short" : "long", activeTool === "short" ? "short" : "long")}
+            title={activeTool === "short" ? "Posición corta" : "Posición larga"}
         >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="4" width="18" height="7" rx="1.5" fill="#089981" stroke="#089981"></rect>
-                <rect x="3" y="13" width="18" height="7" rx="1.5" fill="#f23645" stroke="#f23645"></rect>
-                <line x1="3" y1="12" x2="21" y2="12" stroke="#ffffff" stroke-width="1.5"></line>
-            </svg>
+            {#if activeTool === "short"}
+                <!-- Posición Corta: Stop Loss arriba (rojo) / Take Profit abajo (verde) con flecha bajista -->
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 12V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v6H3z" fill="#f23645"></path>
+                    <path d="M3 12h18v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6z" fill="#089981"></path>
+                    <line x1="3" y1="12" x2="21" y2="12" stroke="#ffffff" stroke-width="1.5"></line>
+                    <path d="M12 18.5l-3.5-4h7L12 18.5z" fill="#ffffff"></path>
+                    <rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"></rect>
+                </svg>
+            {:else}
+                <!-- Posición Larga: Take Profit arriba (verde) con flecha alcista / Stop Loss abajo (rojo) -->
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 12V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v6H3z" fill="#089981"></path>
+                    <path d="M3 12h18v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6z" fill="#f23645"></path>
+                    <line x1="3" y1="12" x2="21" y2="12" stroke="#ffffff" stroke-width="1.5"></line>
+                    <path d="M12 5.5l-3.5 4h7L12 5.5z" fill="#ffffff"></path>
+                    <rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"></rect>
+                </svg>
+            {/if}
         </button>
         <button
             class="nvjs-tb-arrow-btn"
@@ -338,7 +437,15 @@
                     class:selected={activeTool === "long"}
                     on:click={() => selectTool("long", "long")}
                 >
-                    <span class="nvjs-flyout-icon">🟢</span>
+                    <span class="nvjs-flyout-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M3 12V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v6H3z" fill="#089981"></path>
+                            <path d="M3 12h18v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6z" fill="#f23645"></path>
+                            <line x1="3" y1="12" x2="21" y2="12" stroke="#ffffff" stroke-width="1.5"></line>
+                            <path d="M12 5.5l-3.5 4h7L12 5.5z" fill="#ffffff"></path>
+                            <rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"></rect>
+                        </svg>
+                    </span>
                     <span>Posición larga</span>
                 </button>
                 <button
@@ -346,7 +453,15 @@
                     class:selected={activeTool === "short"}
                     on:click={() => selectTool("short", "short")}
                 >
-                    <span class="nvjs-flyout-icon">🔴</span>
+                    <span class="nvjs-flyout-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M3 12V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v6H3z" fill="#f23645"></path>
+                            <path d="M3 12h18v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6z" fill="#089981"></path>
+                            <line x1="3" y1="12" x2="21" y2="12" stroke="#ffffff" stroke-width="1.5"></line>
+                            <path d="M12 18.5l-3.5-4h7L12 18.5z" fill="#ffffff"></path>
+                            <rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"></rect>
+                        </svg>
+                    </span>
                     <span>Posición corta</span>
                 </button>
             </div>
@@ -361,11 +476,13 @@
             on:click={() => selectTool("measure", "nada")}
             title="Medida (Rango de precio / fecha)"
         >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21.3 8.7l-6-6a1 1 0 0 0-1.4 0l-11.2 11.2a1 1 0 0 0 0 1.4l6 6a1 1 0 0 0 1.4 0l11.2-11.2a1 1 0 0 0 0-1.4z"></path>
-                <line x1="7.5" y1="10.5" x2="9.5" y2="8.5"></line>
-                <line x1="10.5" y1="13.5" x2="12.5" y2="11.5"></line>
-                <line x1="13.5" y1="16.5" x2="15.5" y2="14.5"></line>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.5 3.5L3.5 14.5a1.4 1.4 0 0 0 0 2l4 4a1.4 1.4 0 0 0 2 0L20.5 9.5a1.4 1.4 0 0 0 0-2l-4-4a1.4 1.4 0 0 0-2 0z"></path>
+                <line x1="13" y1="5" x2="15.5" y2="7.5"></line>
+                <line x1="11" y1="7" x2="12.5" y2="8.5"></line>
+                <line x1="9" y1="9" x2="11.5" y2="11.5"></line>
+                <line x1="7" y1="11" x2="8.5" y2="12.5"></line>
+                <line x1="5" y1="13" x2="7.5" y2="15.5"></line>
             </svg>
         </button>
     </div>

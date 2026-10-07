@@ -46,9 +46,10 @@ export default class TrendLine {
             // Horizontal line, Vertical line & Horizontal ray are 1-click placed
             this.isDrawing = false
             this.data.isDrawing = false
+            this.selected = false
             this.pins[0].state = 'settled'
             this.core.events.emit('scroll-lock', false)
-            this.onSelect(this.data.uuid)
+            this.core.events.emit('selection-event', null)
         }
     }
 
@@ -162,9 +163,10 @@ export default class TrendLine {
                 trackingPin.mousedown(event, true)
                 this.isDrawing = false
                 this.data.isDrawing = false
+                this.selected = false
                 this.core.events.emit('scroll-lock', false)
                 this.core.events.emit('hub:set-drawing-in-progress', false)
-                this.onSelect(this.data.uuid)
+                this.core.events.emit('selection-event', null)
                 this.core.events.emit('update-layout')
                 if (event) {
                     event.__toolCaptured = true

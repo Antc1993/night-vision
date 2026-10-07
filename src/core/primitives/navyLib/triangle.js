@@ -181,10 +181,11 @@ export default class Triangle {
                 this.pins[2].mousedown(event, true)
                 this.isDrawing = false
                 this.data.isDrawing = false
+                this.selected = false
                 this.step = 0
                 this.core.events.emit('scroll-lock', false)
                 this.core.events.emit('hub:set-drawing-in-progress', false)
-                this.onSelect(this.data.uuid)
+                this.core.events.emit('selection-event', null)
                 this.core.events.emit('update-layout')
                 if (event) {
                     event.__toolCaptured = true

@@ -58,8 +58,9 @@ export default class PositionTool {
 
         if (nw) {
             this.isDrawing = false
+            this.selected = false
             this.core.events.emit('scroll-lock', false)
-            this.onSelect(this.data.uuid)
+            this.core.events.emit('selection-event', null)
         }
 
         this.updatePins()

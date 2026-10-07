@@ -53,6 +53,9 @@
         "horizontal-ray": LineStyle,
         rectangle: RectangleStyle,
         triangle: RectangleStyle,
+        circle: RectangleStyle,
+        ellipse: RectangleStyle,
+        arc: RectangleStyle,
         path: LineStyle,
         polyline: LineStyle,
         fibonacci: FibonacciStyle,
@@ -78,6 +81,12 @@
                 return "Rectángulo";
             case "triangle":
                 return "Triángulo";
+            case "circle":
+                return "Círculo";
+            case "ellipse":
+                return "Elipse";
+            case "arc":
+                return "Arco";
             case "path":
             case "polyline":
                 return "Polilínea / Trayectoria";

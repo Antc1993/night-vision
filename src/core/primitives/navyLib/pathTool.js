@@ -234,10 +234,11 @@ export default class PathToolPrimitive {
 
         this.isDrawing = false
         this.data.isDrawing = false
+        this.selected = false
         this.update()
         this.core.events.emit('scroll-lock', false)
         this.core.events.emit('hub:set-drawing-in-progress', false)
-        this.onSelect(this.data.uuid)
+        this.core.events.emit('selection-event', null)
         this.core.events.emit('update-layout')
     }
 
