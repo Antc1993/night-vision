@@ -128,6 +128,12 @@ function makeLayers() {
         l.overlay = prefab.make(env)
         l.env = env
         l.ovSrc = ov
+        if (!ov.__initialProps || Object.keys(ov.__initialProps).length === 0) {
+            ov.__initialProps = JSON.parse(JSON.stringify(ov.props || {}))
+        }
+        if (!ov.__initialSettings) {
+            ov.__initialSettings = JSON.parse(JSON.stringify(ov.settings || {}))
+        }
         l.ctxType = prefab.ctx
         env.overlay = l.overlay // make a reference
         meta.exctractFrom(l.overlay)

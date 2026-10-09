@@ -90,6 +90,17 @@
             editingProps.lineWidth = ov.props?.lineWidth || 1;
         }
 
+        // Ensure target has initial snapshot recorded
+        let target = script || ov;
+        if (target) {
+            if (!target.__initialProps || Object.keys(target.__initialProps).length === 0) {
+                target.__initialProps = JSON.parse(JSON.stringify(baseProps));
+            }
+            if (!target.__initialSettings || Object.keys(target.__initialSettings).length === 0) {
+                target.__initialSettings = JSON.parse(JSON.stringify(Object.assign({}, script?.settings || {}, ov.settings || {})));
+            }
+        }
+
         // Save original snapshot for revert
         originalSnapshot = {
             props: JSON.parse(JSON.stringify(editingProps)),
@@ -156,16 +167,52 @@
     }
 
     function resetDefaults() {
+        let target = script || ov;
+        let initialProps = target?.__initialProps;
+        let initialSettings = target?.__initialSettings;
+
+        // 1. Restore props from snapshot if available
+        if (initialProps && Object.keys(initialProps).length > 0) {
+            editingProps = JSON.parse(JSON.stringify(initialProps));
+        } else {
+            editingProps = {};
+        }
+
+        // Fill any schema defaults that are missing
         for (let key in propsSchema) {
-            editingProps[key] = propsSchema[key].def;
+            if (!(key in editingProps) || editingProps[key] === undefined) {
+                if (propsSchema[key]?.def !== undefined) {
+                    editingProps[key] = propsSchema[key].def;
+                }
+            }
         }
-        if ('lineWidth' in editingProps) {
-            editingProps.lineWidth = 1;
+
+        // Ensure lineWidth has a valid default
+        if ('lineWidth' in editingProps && (editingProps.lineWidth === undefined || editingProps.lineWidth === null)) {
+            editingProps.lineWidth = propsSchema?.lineWidth?.def || 1;
         }
-        editingSettings.precision = undefined;
-        editingSettings.zIndex = 0;
+
+        // 2. Restore settings from snapshot if available
+        if (initialSettings && Object.keys(initialSettings).length > 0) {
+            editingSettings = JSON.parse(JSON.stringify(initialSettings));
+        } else {
+            let scale = editingSettings.scale || ov?.settings?.scale;
+            let zIndex = ov?.main ? 0 : (ov?.settings?.zIndex ?? (initialSettings?.zIndex ?? -1));
+            editingSettings = {
+                precision: undefined,
+                zIndex: zIndex,
+                display: true,
+                showLegend: true
+            };
+            if (scale) {
+                editingSettings.scale = scale;
+            }
+        }
+
+        // Always make sure display and showLegend are visible on reset
         editingSettings.display = true;
         editingSettings.showLegend = true;
+
         emitLiveUpdate(true);
     }
 

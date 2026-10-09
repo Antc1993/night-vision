@@ -131,6 +131,28 @@ class DataHub {
         this.mainOv = null // Main overlay ref
         this.mainPaneId = null // Mane pane id
 
+        // Capture initial snapshot for overlays and scripts
+        if (data && data.panes) {
+            for (let pane of data.panes) {
+                for (let ov of (pane.overlays || [])) {
+                    if (!ov.__initialProps && ov.props && Object.keys(ov.props).length > 0) {
+                        ov.__initialProps = JSON.parse(JSON.stringify(ov.props))
+                    }
+                    if (!ov.__initialSettings && ov.settings && Object.keys(ov.settings).length > 0) {
+                        ov.__initialSettings = JSON.parse(JSON.stringify(ov.settings))
+                    }
+                }
+                for (let s of (pane.scripts || [])) {
+                    if (!s.__initialProps && s.props && Object.keys(s.props).length > 0) {
+                        s.__initialProps = JSON.parse(JSON.stringify(s.props))
+                    }
+                    if (!s.__initialSettings && s.settings && Object.keys(s.settings).length > 0) {
+                        s.__initialSettings = JSON.parse(JSON.stringify(s.settings))
+                    }
+                }
+            }
+        }
+
     }
 
     // Update data on 'range-changed'. Should apply
@@ -398,7 +420,9 @@ class DataHub {
             await this.se.uploadAndExec()
             this.events.emitSpec('chart', 'full-update')
         } else {
-            this.events.emit('update-grid')
+            if (newSettings && ('zIndex' in newSettings || 'display' in newSettings)) {
+                this.events.emit('remake-grid')
+            }
             this.events.emitSpec('chart', 'update-layout')
             this.events.emit('update-legend')
         }
@@ -518,21 +542,27 @@ class DataHub {
         pane.overlays = pane.overlays || []
 
         if (isOverlay) {
-            pane.overlays.push({
+            let ovObj = {
                 type: type,
                 name: type,
                 props: props,
                 settings: {},
                 data: [],
-                uuid: Utils.uuid3()
-            })
+                uuid: Utils.uuid3(),
+                __initialProps: JSON.parse(JSON.stringify(props || {})),
+                __initialSettings: {}
+            }
+            pane.overlays.push(ovObj)
         } else {
-            pane.scripts.push({
+            let sObj = {
                 type: type,
                 props: props,
                 settings: {},
-                uuid: Utils.uuid3()
-            })
+                uuid: Utils.uuid3(),
+                __initialProps: JSON.parse(JSON.stringify(props || {})),
+                __initialSettings: {}
+            }
+            pane.scripts.push(sObj)
         }
 
         await this.loadScripts()

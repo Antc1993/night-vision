@@ -2,6 +2,7 @@
 // Parser tools
 
 import strip from '@freecodecamp/strip-comments'
+import Const from '../../stuff/constants.js'
 
 const COMMENTS = /(\/\*([\s\S]*?)\*\/)|(\/\/(.*)$)/gm
 
@@ -211,19 +212,30 @@ function extractPropsSchema(src) {
     let code = decomment(src)
     let regex = /prop\s*\(\s*['"]([a-zA-Z0-9_]+)['"]\s*,\s*(\{[\s\S]*?\})\s*\)/g
     let match
+    let accumulatedProps = {}
     while ((match = regex.exec(code)) !== null) {
         let name = match[1]
         let descrStr = match[2]
         try {
             let autoPrec = () => 2
-            let $core = { colors: { text: '#d1d4dc', back: '#1e222d', scale: '#2a2e39' } }
-            let descr = new Function('autoPrec', '$core', `return (${descrStr})`)(autoPrec, $core)
+            let colors = Object.assign({}, Const.COLORS || {}, { text: '#d1d4dc', back: '#1e222d', scale: '#2a2e39' })
+            let $core = { colors }
+            let $props = accumulatedProps
+            let descr = new Function('autoPrec', '$core', '$props', `return (${descrStr})`)(autoPrec, $core, $props)
             schema[name] = descr
+            if (descr && descr.def !== undefined) {
+                accumulatedProps[name] = descr.def
+            }
         } catch (e) {
             let typeMatch = descrStr.match(/type\s*:\s*['"]([^'"]+)['"]/i)
             let defMatch = descrStr.match(/def\s*:\s*([^,\}\n]+)/)
             let type = typeMatch ? typeMatch[1].toLowerCase() : 'string'
-            let def = defMatch ? defMatch[1].trim().replace(/^['"]|['"]$/g, '') : undefined
+            let rawDef = defMatch ? defMatch[1].trim().replace(/^['"]|['"]$/g, '') : undefined
+            // If rawDef is an unresolved code expression (starts with $ or contains operators), do not keep raw expression string!
+            let def = rawDef
+            if (rawDef && (rawDef.includes('$') || rawDef.includes('+') || rawDef.includes('('))) {
+                def = undefined
+            }
             schema[name] = { type, def }
         }
     }
