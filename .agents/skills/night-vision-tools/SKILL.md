@@ -204,6 +204,39 @@ Cada herramienta consta de 3 capas esenciales:
   - Conteo inclusivo de barras: `barsCount = (idx2 - idx1) + 1` (más extrapolación si el rango sobrepasa los límites del dataset hacia el pasado o futuro).
   - Si se arrastra hacia la izquierda (`p2[0] < p1[0]`), mostrar valores negativos (`-15 barras, -1h 15m`) siguiendo el estándar TradingView.
 
+### ⚠️ Regla 11: Geometría de Herramientas Curvas y Arcos de 3 Puntos (Fórmula Maestra)
+Para cualquier primitiva curva donde el tercer punto ($P_3$) defina la curvatura en el punto medio respecto a los extremos ($P_1, P_2$):
+
+1. **Cálculo de Geometría en Pantalla (`getGeometry`) - Proyección Ortogonal Limpia**:
+   - Calcular punto medio en pantalla: $M = \left(\frac{x_1 + x_2}{2}, \frac{y_1 + y_2}{2}\right)$.
+   - Vector cuerda y longitud: $\vec{d} = (dx, dy) = (x_2 - x_1, y_2 - y_1)$, $L = \text{hypot}(dx, dy)$.
+   - Vector normal unitario perpendicular en pantalla: $\hat{n} = \left(-\frac{dy}{L}, \frac{dx}{L}\right)$.
+   - Proyectar la posición de datos del punto 3 a pantalla: $x_{3, raw} = \text{layout.time2x}(p_3.t)$, $y_{3, raw} = \text{layout.value2y}(p_3.y\$)$.
+   - Obtener la distancia perpendicular con signo $h$:
+     $$\vec{v} = (x_{3, raw} - M_x, y_{3, raw} - M_y)$$
+     $$h = \vec{v} \cdot \hat{n}$$
+   - Posicionar el punto 3 en pantalla estrictamente perpendicular en la mitad del arco:
+     $$P_3 = (x_3, y_3) = M + h \cdot \hat{n}$$
+   - Punto de control de Bézier cuadrático ($u = 0.5 \implies B(0.5) = P_3$):
+     $$Q = 2 P_3 - M \implies Q_x = 2 x_3 - M_x, \quad Q_y = 2 y_3 - M_y$$
+
+2. **Regla Crítica: Inmutabilidad en `getGeometry` (Prevención de Feedback Loop de Crecimiento)**:
+   - **NUNCA sobreescribir `p3.t` ni `p3.y$` dentro de `getGeometry()`**.
+   - Si se mutan las coordenadas de datos en cada frame a partir de $(x_3, y_3)$, la discretización temporal/flotante de `layout.x2time` retroalimenta $h$ en un bucle positivo, causando que el arco se agrande continuamente al mover el mouse.
+   - $(p_3.t, p_3.y\$)$ **SOLO** se actualizan en eventos de interacción directa del usuario (`updatePin3` al arrastrar el punto 3 o `updatePin3FromCurvature` al arrastrar $P_1/P_2$).
+
+3. **Prevención de Saltos ("Teletransportación") al Hacer Clic (`mousedown`)**:
+   - **NO condicionar el cálculo de $(x_3, y_3)$ al estado de arrastre** (ej. evitar bifurcaciones como `if (!isDraggingPin3)`).
+   - Cuando el usuario hace clic sobre el pin, su estado pasa a `dragging` antes de que se mueva el ratón. Si el cálculo depende de esa bandera, el punto saltará en el instante de presionar el botón. Al usar la proyección ortogonal uniforme, la posición es idéntica en reposo y en arrastre.
+
+4. **Anclaje de `Pin 3` a la Mitad del Arco**:
+   - Por defecto, la clase `Pin` dibuja y detecta colisiones proyectando `this.t` y `this.y$`. Para un pin dependiente como $P_3$, se deben sobreescribir `draw_circle(ctx)` y `hover()` en `this.pins[2]` para que utilicen directamente `this.pins[2].x` y `this.pins[2].y` asignados desde $(geo.x_3, geo.y_3)$ (con fallback a `getGeometry()` si aún no están inicializados).
+   - Esto asegura que la bolita del Pin 3 se dibuje **exactamente en la mitad física de la curva** ($u = 0.5$) en todo momento y no flote fuera del arco durante el zoom.
+
+5. **Interacciones de Arrastre**:
+   - **Al mover $P_3$ (`updatePin3`)**: proyectar el cursor sobre $\hat{n}$, calcular el nuevo $h = (cursor - M) \cdot \hat{n}$, actualizar `p3.t = layout.x2time(x3)` y `p3.y$ = layout.y2value(y3)`.
+   - **Al mover $P_1$ o $P_2$ (`updatePin3FromCurvature`)**: mantener la distancia fija $h = \text{curvatureDist}$ a lo largo de la nueva normal $\hat{n}_{nuevo}$ en el nuevo punto medio $M_{nuevo}$, actualizando las coordenadas de datos.
+
 ---
 
 ## 4. Plantilla para Crear una Nueva Herramienta

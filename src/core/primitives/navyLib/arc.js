@@ -15,8 +15,60 @@ export default class Arc {
         this.pins = [
             new core.lib.Pin(core, this, 'p1'), // Start
             new core.lib.Pin(core, this, 'p2'), // End
-            new core.lib.Pin(core, this, 'p3')  // Curvature / Mid-arc point
+            new core.lib.Pin(core, this, 'p3')  // Curvature (midpoint, moves in one direction)
         ]
+
+        // Override Pin 3 update so it moves strictly in one direction (perpendicular)
+        this.pins[2].update = () => {
+            const cursor = this.core.cursor || {}
+            const mouse = this.core.mouse || {}
+            const mx = cursor.x !== undefined ? cursor.x : (mouse.x !== undefined ? mouse.x : 0)
+            const my = cursor.y !== undefined ? cursor.y : (mouse.y !== undefined ? mouse.y : 0)
+            this.updatePin3(mx, my)
+        }
+
+        // Lock Pin 3 visual rendering and hit-testing directly to its screen coords (this.x, this.y)
+        this.pins[2].draw_circle = (ctx) => {
+            let px = this.pins[2].x
+            let py = this.pins[2].y
+            if (px == null || py == null || isNaN(px) || isNaN(py)) {
+                const geo = this.getGeometry()
+                if (geo) {
+                    px = this.pins[2].x = geo.x3
+                    py = this.pins[2].y = geo.y3
+                } else {
+                    return
+                }
+            }
+            const r = this.selected ? this.pins[2].RADIUS : this.pins[2].RADIUS * 0.95
+            const lw = this.selected ? 1.5 : 1
+
+            ctx.lineWidth = lw
+            ctx.strokeStyle = this.pins[2].COLOR_BR
+            ctx.fillStyle = this.pins[2].COLOR_BACK
+            ctx.beginPath()
+            ctx.arc(px, py, r + 0.5, 0, Math.PI * 2, true)
+            ctx.fill()
+            ctx.stroke()
+        }
+
+        this.pins[2].hover = () => {
+            let px = this.pins[2].x
+            let py = this.pins[2].y
+            if (px == null || py == null || isNaN(px) || isNaN(py)) {
+                const geo = this.getGeometry()
+                if (geo) {
+                    px = this.pins[2].x = geo.x3
+                    py = this.pins[2].y = geo.y3
+                } else {
+                    return false
+                }
+            }
+            const mouse = this.core.mouse || {}
+            const mx = mouse.x !== undefined ? mouse.x : 0
+            const my = mouse.y !== undefined ? mouse.y : 0
+            return Math.hypot(mx - px, my - py) < (this.pins[2].RADIUS + 3)
+        }
 
         const isNew = nw || data.isDrawing || false
         if (isNew) {
@@ -30,6 +82,8 @@ export default class Arc {
 
         this.isDragging = false
         this.dragStart = null
+        this.curvatureDist = data.curvatureDist != null ? data.curvatureDist : null
+        this.curvatureRatio = data.curvatureRatio != null ? data.curvatureRatio : null
     }
 
     colorWithOpacity(color, opacity = 0.15) {
@@ -50,10 +104,153 @@ export default class Arc {
         return color
     }
 
-    // Normalizes angle to [0, 2*PI)
-    normalizeAngle(a) {
-        const twoPi = Math.PI * 2
-        return (a % twoPi + twoPi) % twoPi
+    // Constrains Pin 3 to move strictly perpendicular to the chord (P1 -> P2)
+    updatePin3(mx, my) {
+        const layout = this.core.layout
+        if (!layout) return
+
+        const p1 = this.pins[0]
+        const p2 = this.pins[1]
+        const p3 = this.pins[2]
+        if (!p1 || !p2 || !p3) return
+
+        const x1 = layout.time2x(p1.t)
+        const y1 = layout.value2y(p1.y$)
+        const x2 = layout.time2x(p2.t)
+        const y2 = layout.value2y(p2.y$)
+
+        const mxMid = (x1 + x2) / 2
+        const myMid = (y1 + y2) / 2
+
+        const dx = x2 - x1
+        const dy = y2 - y1
+        const len = Math.hypot(dx, dy)
+
+        let x3 = mxMid
+        let y3 = myMid
+
+        if (len > 0.001) {
+            // Unit normal vector perpendicular to chord (p1 -> p2)
+            const nx = -dy / len
+            const ny = dx / len
+
+            // Project cursor offset from chord midpoint onto perpendicular normal
+            const vx = mx - mxMid
+            const vy = my - myMid
+            const h = vx * nx + vy * ny
+
+            x3 = mxMid + h * nx
+            y3 = myMid + h * ny
+
+            this.curvatureDist = h
+            this.curvatureRatio = h / len
+            if (this.data) {
+                this.data.curvatureDist = this.curvatureDist
+                this.data.curvatureRatio = this.curvatureRatio
+            }
+        }
+
+        const x2tFn = layout.x2time || layout.x2t
+        p3.t = x2tFn ? x2tFn.call(layout, x3) : p3.t
+        p3.y$ = layout.y2value(y3)
+
+        p3.x = x3
+        p3.y = y3
+
+        if (this.data.p3) {
+            this.data.p3[0] = p3.t
+            this.data.p3[1] = p3.y$
+        }
+    }
+
+    computeCurvatureRatio() {
+        const layout = this.core.layout
+        const p1 = this.pins[0]
+        const p2 = this.pins[1]
+        const p3 = this.pins[2]
+        if (!layout || !p1 || !p2 || !p3) return this.curvatureRatio || 0
+
+        const x1 = layout.time2x(p1.t)
+        const y1 = layout.value2y(p1.y$)
+        const x2 = layout.time2x(p2.t)
+        const y2 = layout.value2y(p2.y$)
+        const x3 = layout.time2x(p3.t)
+        const y3 = layout.value2y(p3.y$)
+
+        const dx = x2 - x1
+        const dy = y2 - y1
+        const len = Math.hypot(dx, dy)
+        if (len < 0.001) return 0
+
+        const mxMid = (x1 + x2) / 2
+        const myMid = (y1 + y2) / 2
+
+        const nx = -dy / len
+        const ny = dx / len
+
+        const vx = x3 - mxMid
+        const vy = y3 - myMid
+        const h = vx * nx + vy * ny
+
+        return h / len
+    }
+
+    // Automatically recalculates Pin 3 position when Pin 1 or Pin 2 changes
+    // Maintains the EXACT same perpendicular distance h from the imaginary line P1-P2
+    updatePin3FromCurvature() {
+        const layout = this.core.layout
+        if (!layout) return
+
+        const p1 = this.pins[0]
+        const p2 = this.pins[1]
+        const p3 = this.pins[2]
+        if (!p1 || !p2 || !p3) return
+
+        const x1 = layout.time2x(p1.t)
+        const y1 = layout.value2y(p1.y$)
+        const x2 = layout.time2x(p2.t)
+        const y2 = layout.value2y(p2.y$)
+
+        const mxMid = (x1 + x2) / 2
+        const myMid = (y1 + y2) / 2
+
+        const dx = x2 - x1
+        const dy = y2 - y1
+        const len = Math.hypot(dx, dy)
+        if (len < 0.001) return
+
+        // Unit normal vector perpendicular to chord (P1 -> P2)
+        const nx = -dy / len
+        const ny = dx / len
+
+        // Maintain the EXACT fixed perpendicular distance h
+        let h = this.curvatureDist
+        if (h == null) {
+            const x3Cur = layout.time2x(p3.t)
+            const y3Cur = layout.value2y(p3.y$)
+            h = (x3Cur - mxMid) * nx + (y3Cur - myMid) * ny
+            this.curvatureDist = h
+            if (this.data) this.data.curvatureDist = h
+        }
+
+        // Keep identical perpendicular distance h from the new midpoint along normal
+        const x3 = mxMid + h * nx
+        const y3 = myMid + h * ny
+
+        this.curvatureRatio = h / len
+        if (this.data) this.data.curvatureRatio = this.curvatureRatio
+
+        const x2tFn = layout.x2time || layout.x2t
+        p3.t = x2tFn ? x2tFn.call(layout, x3) : p3.t
+        p3.y$ = layout.y2value(y3)
+
+        p3.x = x3
+        p3.y = y3
+
+        if (this.data.p3) {
+            this.data.p3[0] = p3.t
+            this.data.p3[1] = p3.y$
+        }
     }
 
     getGeometry() {
@@ -67,47 +264,75 @@ export default class Arc {
         const y1 = layout.value2y(p1.y$)
         const x2 = layout.time2x(p2.t)
         const y2 = layout.value2y(p2.y$)
-        const x3 = layout.time2x(p3.t)
-        const y3 = layout.value2y(p3.y$)
 
-        if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2) || isNaN(x3) || isNaN(y3)) return null
+        if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) return null
 
-        // Step 2 preview: while dragging p2 before setting p3
+        const mxMid = (x1 + x2) / 2
+        const myMid = (y1 + y2) / 2
+
+        // Step 2 preview: while dragging p2 before setting curvature
         if (this.isDrawing && this.step === 2) {
-            return { isStraight: true, x1, y1, x2, y2, x3, y3 }
+            return {
+                isStraight: true,
+                x1, y1,
+                x2, y2,
+                x3: mxMid,
+                y3: myMid,
+                Qx: mxMid,
+                Qy: myMid,
+                mxMid, myMid
+            }
         }
 
-        // Three point circle formula
-        const D = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+        const dx = x2 - x1
+        const dy = y2 - y1
+        const len = Math.hypot(dx, dy)
 
-        if (Math.abs(D) < 0.001) {
-            return { isStraight: true, x1, y1, x2, y2, x3, y3 }
+        let x3 = mxMid
+        let y3 = myMid
+
+        if (len > 0.001) {
+            const nx = -dy / len
+            const ny = dx / len
+
+            const x3Raw = layout.time2x(p3.t)
+            const y3Raw = layout.value2y(p3.y$)
+
+            const vx = x3Raw - mxMid
+            const vy = y3Raw - myMid
+            const h = vx * nx + vy * ny
+
+            x3 = mxMid + h * nx
+            y3 = myMid + h * ny
+
+            this.curvatureDist = h
+            if (this.data) this.data.curvatureDist = h
+        } else {
+            x3 = layout.time2x(p3.t)
+            y3 = layout.value2y(p3.y$)
         }
 
-        const cx = ((x1 * x1 + y1 * y1) * (y2 - y3) + (x2 * x2 + y2 * y2) * (y3 - y1) + (x3 * x3 + y3 * y3) * (y1 - y2)) / D
-        const cy = ((x1 * x1 + y1 * y1) * (x3 - x2) + (x2 * x2 + y2 * y2) * (x1 - x3) + (x3 * x3 + y3 * y3) * (x2 - x1)) / D
-        const R = Math.hypot(x1 - cx, y1 - cy)
+        if (isNaN(x3) || isNaN(y3)) return null
 
-        if (R > 50000 || isNaN(R)) {
-            return { isStraight: true, x1, y1, x2, y2, x3, y3 }
-        }
+        p3.x = x3
+        p3.y = y3
+        this.pins[2].x = x3
+        this.pins[2].y = y3
 
-        const theta1 = Math.atan2(y1 - cy, x1 - cx)
-        const theta2 = Math.atan2(y2 - cy, x2 - cx)
-        const theta3 = Math.atan2(y3 - cy, x3 - cx)
+        // Quadratic Bézier control point:
+        // Curve B(0.5) = 0.25*P1 + 0.5*Q + 0.25*P2 = P3  =>  Q = 2*P3 - 0.5*(P1 + P2)
+        const Qx = 2 * x3 - mxMid
+        const Qy = 2 * y3 - myMid
 
-        const a2 = this.normalizeAngle(theta2 - theta1)
-        const a3 = this.normalizeAngle(theta3 - theta1)
-
-        // If a3 < a2, going clockwise from theta1 passes through theta3 to reach theta2
-        const anticlockwise = a3 > a2
+        const isStraight = Math.hypot(x3 - mxMid, y3 - myMid) < 2
 
         return {
-            isStraight: false,
-            cx, cy, R,
-            theta1, theta2, theta3,
-            anticlockwise,
-            x1, y1, x2, y2, x3, y3
+            isStraight,
+            x1, y1,
+            x2, y2,
+            x3, y3,
+            Qx, Qy,
+            mxMid, myMid
         }
     }
 
@@ -116,9 +341,10 @@ export default class Arc {
         if (!layout) return
 
         if (this.isDrawing) {
-            const trackingPin = this.pins.find(p => p.state === 'tracking')
-            if (trackingPin) {
-                trackingPin.update()
+            if (this.step === 2) {
+                this.pins[1].update()
+            } else if (this.step === 3) {
+                this.pins[2].update()
             }
         }
 
@@ -129,7 +355,7 @@ export default class Arc {
         const color = sett.color || '#26a69a'
         const lineWidth = sett.lineWidth || 2
         const lineStyle = sett.lineStyle || 'solid'
-        const showBg = sett.showBackground === true
+        const showBg = sett.showBackground !== false
         const bgOpacity = (sett.backgroundOpacity != null ? sett.backgroundOpacity : 15) / 100
         const fillColor = sett.backColor || sett.fillColor || color
 
@@ -144,7 +370,6 @@ export default class Arc {
         }
 
         if (geo.isStraight) {
-            // Degenerate / initial straight chord
             ctx.strokeStyle = color
             ctx.lineWidth = lineWidth
             ctx.beginPath()
@@ -152,25 +377,28 @@ export default class Arc {
             ctx.lineTo(geo.x2, geo.y2)
             ctx.stroke()
         } else {
-            // Circular arc passing through p1, p3, p2
+            // Fill background segment
             if (showBg) {
                 ctx.fillStyle = this.colorWithOpacity(fillColor, bgOpacity)
                 ctx.beginPath()
-                ctx.arc(geo.cx, geo.cy, geo.R, geo.theta1, geo.theta2, geo.anticlockwise)
+                ctx.moveTo(geo.x1, geo.y1)
+                ctx.quadraticCurveTo(geo.Qx, geo.Qy, geo.x2, geo.y2)
                 ctx.closePath()
                 ctx.fill()
             }
 
+            // Stroke smooth arc
             ctx.strokeStyle = color
             ctx.lineWidth = lineWidth
             ctx.beginPath()
-            ctx.arc(geo.cx, geo.cy, geo.R, geo.theta1, geo.theta2, geo.anticlockwise)
+            ctx.moveTo(geo.x1, geo.y1)
+            ctx.quadraticCurveTo(geo.Qx, geo.Qy, geo.x2, geo.y2)
             ctx.stroke()
         }
 
         ctx.setLineDash([])
 
-        // Subtle chord line when selected or drawing
+        // Subtle guide chord and perpendicular line when selected or drawing
         if (this.selected || this.isDrawing) {
             ctx.setLineDash([3, 3])
             ctx.strokeStyle = this.colorWithOpacity(color, 0.4)
@@ -178,6 +406,10 @@ export default class Arc {
             ctx.beginPath()
             ctx.moveTo(geo.x1, geo.y1)
             ctx.lineTo(geo.x2, geo.y2)
+            if (!geo.isStraight) {
+                ctx.moveTo(geo.mxMid, geo.myMid)
+                ctx.lineTo(geo.x3, geo.y3)
+            }
             ctx.stroke()
             ctx.setLineDash([])
         }
@@ -186,8 +418,12 @@ export default class Arc {
 
         // Draw Pins
         if (this.hover || this.selected || this.isDrawing) {
-            for (const pin of this.pins) {
-                pin.draw(ctx)
+            this.pins[0].draw(ctx)
+            this.pins[1].draw(ctx)
+            if (this.step !== 2) {
+                this.pins[2].x = geo.x3
+                this.pins[2].y = geo.y3
+                this.pins[2].draw(ctx)
             }
         }
     }
@@ -201,27 +437,37 @@ export default class Arc {
         const geo = this.getGeometry()
         if (!geo) return false
 
+        // Fast bounding box rejection
+        const minX = Math.min(geo.x1, geo.x2, geo.x3, geo.Qx) - 10
+        const maxX = Math.max(geo.x1, geo.x2, geo.x3, geo.Qx) + 10
+        const minY = Math.min(geo.y1, geo.y2, geo.y3, geo.Qy) - 10
+        const maxY = Math.max(geo.y1, geo.y2, geo.y3, geo.Qy) + 10
+        if (mx < minX || mx > maxX || my < minY || my > maxY) return false
+
         if (geo.isStraight) {
             return Math2.point2line([mx, my], [geo.x1, geo.y1], [geo.x2, geo.y2]) <= 8
         }
 
-        const dist = Math.hypot(mx - geo.cx, my - geo.cy)
-        if (Math.abs(dist - geo.R) > 9) return false
-
-        // Check if mouse angle is within the arc span
-        const thetaM = Math.atan2(my - geo.cy, mx - geo.cx)
-        const aM = this.normalizeAngle(thetaM - geo.theta1)
-        const a2 = this.normalizeAngle(geo.theta2 - geo.theta1)
-
-        if (!geo.anticlockwise) {
-            return aM <= a2
-        } else {
-            return aM >= a2
+        // Distance to quadratic curve (16 segments)
+        const steps = 16
+        let prevX = geo.x1
+        let prevY = geo.y1
+        for (let i = 1; i <= steps; i++) {
+            const u = i / steps
+            const invU = 1 - u
+            const curX = invU * invU * geo.x1 + 2 * invU * u * geo.Qx + u * u * geo.x2
+            const curY = invU * invU * geo.y1 + 2 * invU * u * geo.Qy + u * u * geo.y2
+            if (Math2.point2line([mx, my], [prevX, prevY], [curX, curY]) <= 8) {
+                return true
+            }
+            prevX = curX
+            prevY = curY
         }
+        return false
     }
 
     propagate(name, data) {
-        for (const pin of this.pins) {
+        for (var pin of this.pins) {
             pin[name](data)
         }
     }
@@ -229,14 +475,16 @@ export default class Arc {
     mousedown(event) {
         if (this.isDrawing) {
             if (this.step === 2) {
-                // Settle P2, start tracking P3
-                this.pins[1].mousedown(event, true)
-                this.pins[2].state = 'tracking'
-                // Set P3 initial position at midpoint between P1 and P2
-                this.pins[2].t = (this.pins[0].t + this.pins[1].t) / 2
-                this.pins[2].y$ = (this.pins[0].y$ + this.pins[1].y$) / 2
-                this.data.p3 = [this.pins[2].t, this.pins[2].y$]
+                this.pins[1].state = 'settled'
                 this.step = 3
+                this.pins[2].state = 'tracking'
+                this.pins[2].origin = null
+                // Initialize Pin 3 at midpoint
+                const cursor = this.core.cursor || {}
+                const mouse = this.core.mouse || {}
+                const mx = cursor.x !== undefined ? cursor.x : (mouse.x !== undefined ? mouse.x : 0)
+                const my = cursor.y !== undefined ? cursor.y : (mouse.y !== undefined ? mouse.y : 0)
+                this.updatePin3(mx, my)
                 this.core.events.emit('update-layout')
                 if (event) {
                     event.__toolCaptured = true
@@ -246,8 +494,7 @@ export default class Arc {
             }
 
             if (this.step === 3) {
-                // Settle P3, finish drawing
-                this.pins[2].mousedown(event, true)
+                this.pins[2].state = 'settled'
                 this.isDrawing = false
                 this.data.isDrawing = false
                 this.selected = false
@@ -282,7 +529,8 @@ export default class Arc {
             if (isDbl) return
         }
 
-        if (!pinHovered && this.collision()) {
+        // Only drag if already selected
+        if (this.selected && !pinHovered && this.collision()) {
             this.isDragging = true
             const cursor = this.core.cursor || {}
             const mouse = this.core.mouse || {}
@@ -371,6 +619,21 @@ export default class Arc {
             return
         }
 
+        // If Pin 3 is being dragged specifically
+        if (this.pins[2].state === 'dragging') {
+            this.pins[2].update()
+            this.core.events.emit('update-layout')
+            return
+        }
+
+        // If Pin 1 or Pin 2 is being dragged, update it and recalculate Pin 3 accordingly
+        if (this.pins[0].state === 'dragging' || this.pins[1].state === 'dragging') {
+            this.propagate('mousemove', event)
+            this.updatePin3FromCurvature()
+            this.core.events.emit('update-layout')
+            return
+        }
+
         if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) {
             this.hover = false
             return
@@ -379,19 +642,13 @@ export default class Arc {
         this.propagate('mousemove', event)
 
         const hoveredPin = this.pins.find(p => p.hover())
-        if (hoveredPin) {
-            this.hover = true
+        const isColliding = hoveredPin || this.collision()
+        const wasHover = this.hover
+        this.hover = isColliding
+        if (this.hover && !wasHover) {
             this.core.events.emit('set-cursor', 'pointer')
-            return
-        }
-
-        const isColliding = this.collision()
-        if (isColliding) {
-            this.hover = true
-            this.core.events.emit('set-cursor', 'pointer')
-        } else if (this.hover) {
-            this.hover = false
-            this.core.events.emit('set-cursor', 'crosshair')
+        } else if (!this.hover && wasHover) {
+            this.core.events.emit('set-cursor', 'default')
         }
     }
 }

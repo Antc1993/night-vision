@@ -54,13 +54,18 @@ export default class Circle {
 
         const cx = layout.time2x(p1.t)
         const cy = layout.value2y(p1.y$)
-        const rx = layout.time2x(p2.t)
-        const ry = layout.value2y(p2.y$)
+        const rxEdge = layout.time2x(p2.t)
 
-        if (isNaN(cx) || isNaN(cy) || isNaN(rx) || isNaN(ry)) return null
+        if (isNaN(cx) || isNaN(cy) || isNaN(rxEdge)) return null
 
-        const radius = Math.max(1, Math.hypot(rx - cx, ry - cy))
-        return { cx, cy, rx, ry, radius }
+        let radius = Math.abs(rxEdge - cx)
+        if (radius < 2) radius = 2
+
+        // Clamp radius to prevent browser canvas freeze on extreme offscreen zoom
+        const maxR = Math.max(layout.width || 1200, layout.height || 800) * 3
+        if (radius > maxR) radius = maxR
+
+        return { cx, cy, rxEdge, radius }
     }
 
     draw(ctx) {
@@ -70,7 +75,22 @@ export default class Circle {
         if (this.isDrawing) {
             const trackingPin = this.pins.find(p => p.state === 'tracking')
             if (trackingPin) {
-                trackingPin.update()
+                const cursor = this.core.cursor || {}
+                const mouse = this.core.mouse || {}
+                const mx = cursor.x !== undefined ? cursor.x : (mouse.x !== undefined ? mouse.x : 0)
+                const my = cursor.y !== undefined ? cursor.y : (mouse.y !== undefined ? mouse.y : 0)
+                const cx = layout.time2x(this.pins[0].t)
+                const cy = layout.value2y(this.pins[0].y$)
+                const R = Math.max(5, Math.hypot(mx - cx, my - cy))
+                const x2tFn = layout.x2time || layout.x2t
+                if (x2tFn) {
+                    const tEdge = x2tFn.call(layout, cx + R)
+                    trackingPin.t = tEdge
+                    trackingPin.y$ = this.pins[0].y$
+                    if (this.data.p2) {
+                        this.data.p2 = [tEdge, this.pins[0].y$]
+                    }
+                }
             }
         }
 
@@ -112,19 +132,19 @@ export default class Circle {
         ctx.stroke()
         ctx.setLineDash([])
 
-        // 3. Optional Center Radius Guide Line while drawing or selected
+        // 3. Center Radius Guide Line while drawing or selected
         if (this.isDrawing || this.selected) {
             ctx.setLineDash([2, 2])
             ctx.strokeStyle = this.colorWithOpacity(color, 0.6)
             ctx.lineWidth = 1
             ctx.beginPath()
             ctx.moveTo(cx, cy)
-            ctx.lineTo(geo.rx, geo.ry)
+            ctx.lineTo(cx + radius, cy)
             ctx.stroke()
             ctx.setLineDash([])
         }
 
-        // 4. Optional Text
+        // 4. Text
         if (this.data.text || sett.text) {
             const text = this.data.text || sett.text
             ctx.fillStyle = sett.textColor || '#ffffff'
@@ -138,9 +158,10 @@ export default class Circle {
 
         // 5. Draw Pins
         if (this.hover || this.selected || this.isDrawing) {
-            for (const pin of this.pins) {
-                pin.draw(ctx)
-            }
+            this.pins[0].draw(ctx)
+            this.pins[1].x = cx + radius
+            this.pins[1].y = cy
+            this.pins[1].draw(ctx)
         }
     }
 
@@ -152,21 +173,25 @@ export default class Circle {
 
         const geo = this.getGeometry()
         if (!geo) return false
-        const { cx, cy, radius } = geo
 
-        const dist = Math.hypot(mx - cx, my - cy)
+        // Fast bounding box rejection
+        if (mx < geo.cx - geo.radius - 8 || mx > geo.cx + geo.radius + 8 ||
+            my < geo.cy - geo.radius - 8 || my > geo.cy + geo.radius + 8) {
+            return false
+        }
+
+        const dist = Math.hypot(mx - geo.cx, my - geo.cy)
+        const onPerimeter = Math.abs(dist - geo.radius) <= 8
+        const insideFill = dist <= geo.radius
+
         const sett = this.data.settings || {}
         const showBg = sett.showBackground !== false
 
-        // If circle has background fill, clicking inside counts as hit
-        if (showBg && dist <= radius) return true
-
-        // Otherwise clicking near the perimeter counts as hit
-        return Math.abs(dist - radius) <= 7
+        return onPerimeter || (showBg && insideFill)
     }
 
     propagate(name, data) {
-        for (const pin of this.pins) {
+        for (var pin of this.pins) {
             pin[name](data)
         }
     }
@@ -175,7 +200,7 @@ export default class Circle {
         if (this.isDrawing) {
             const trackingPin = this.pins.find(p => p.state === 'tracking')
             if (trackingPin) {
-                trackingPin.mousedown(event, true)
+                trackingPin.state = 'settled'
                 this.isDrawing = false
                 this.data.isDrawing = false
                 this.selected = false
@@ -209,7 +234,8 @@ export default class Circle {
             if (isDbl) return
         }
 
-        if (!pinHovered && this.collision()) {
+        // Only drag if already selected
+        if (this.selected && !pinHovered && this.collision()) {
             this.isDragging = true
             const cursor = this.core.cursor || {}
             const mouse = this.core.mouse || {}
@@ -290,11 +316,7 @@ export default class Circle {
         }
 
         if (this.isDrawing) {
-            const trackingPin = this.pins.find(p => p.state === 'tracking')
-            if (trackingPin) {
-                trackingPin.mousemove(event)
-                this.core.events.emit('update-layout')
-            }
+            this.core.events.emit('update-layout')
             return
         }
 
@@ -306,19 +328,13 @@ export default class Circle {
         this.propagate('mousemove', event)
 
         const hoveredPin = this.pins.find(p => p.hover())
-        if (hoveredPin) {
-            this.hover = true
+        const isColliding = hoveredPin || this.collision()
+        const wasHover = this.hover
+        this.hover = isColliding
+        if (this.hover && !wasHover) {
             this.core.events.emit('set-cursor', 'pointer')
-            return
-        }
-
-        const isColliding = this.collision()
-        if (isColliding) {
-            this.hover = true
-            this.core.events.emit('set-cursor', 'pointer')
-        } else if (this.hover) {
-            this.hover = false
-            this.core.events.emit('set-cursor', 'crosshair')
+        } else if (!this.hover && wasHover) {
+            this.core.events.emit('set-cursor', 'default')
         }
     }
 }
