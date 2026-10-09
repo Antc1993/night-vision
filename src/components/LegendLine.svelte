@@ -124,20 +124,19 @@
         if (ctrlRef) ctrlRef.update();
     }
 
+    let isMenuOpen = false;
+
     function onMouseMove(e) {
         if (!hover) {
-            setTimeout(() => {
-                updateBoundaries();
-                hover = true;
-            });
+            updateBoundaries();
+            hover = true;
         }
     }
 
     function onMouseLeave(e) {
-        setTimeout(() => {
-            updateBoundaries();
-            hover = false;
-        });
+        if (isMenuOpen) return;
+        updateBoundaries();
+        hover = false;
     }
 
     function onClick() {
@@ -237,12 +236,13 @@
                 </span>
             {/if}
         </div>
-        {#if !display && !hover}
+        {#if !display && !hover && !isMenuOpen}
             <div class="nvjs-eye" style={eyeStyle}></div>
         {/if}
-        {#if hover}
+        {#if hover || isMenuOpen}
             <LegendControls
                 bind:this={ctrlRef}
+                bind:menuOpen={isMenuOpen}
                 {gridId}
                 {ov}
                 {props}

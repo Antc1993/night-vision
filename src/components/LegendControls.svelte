@@ -10,10 +10,10 @@
     export let ov; // Overlay
     export let props; // General props
     export let height = undefined; // Legend-line height
+    export let menuOpen = false;
 
     let events = Events.instance(props.id);
     let hub = DataHub.instance(props.id);
-    let menuOpen = false;
     let ctrlsRR = 0;
 
     events.on(`legend-ctrls-${gridId}:update-pane`, () => {
@@ -325,7 +325,7 @@
 
     .nvjs-more-menu {
         position: absolute;
-        top: 24px;
+        top: calc(100% + 2px);
         right: 0;
         background: #1e222d;
         border: 1px solid #363c4e;
@@ -337,6 +337,16 @@
         display: flex;
         flex-direction: column;
         pointer-events: all;
+    }
+
+    .nvjs-more-menu::before {
+        content: "";
+        position: absolute;
+        top: -8px;
+        left: 0;
+        right: 0;
+        height: 8px;
+        background: transparent;
     }
 
     .nvjs-menu-item {
