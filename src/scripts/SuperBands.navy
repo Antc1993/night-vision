@@ -12,7 +12,7 @@
 --- <low2> ---
 */
 
-[OVERLAY name=SuperBands, ctx=Canvas, verion=1.0.0]
+[OVERLAY name=SuperBands, ctx=Canvas, version=1.0.0]
 
 // Overlay props
 prop('color1', { type: 'color', def: '#d80d3848' })
@@ -41,18 +41,21 @@ draw(ctx) {
 
 
 drawBand(ctx, layout, view, i1, i2) {
-    let data = $core.view.src
+    let data = $core.data || $core.view?.src
+    if (!data || !data.length) return
     ctx.beginPath()
     for (var i = view.i1, n = view.i2; i <= n; i++) {
         let p = data[i]
+        if (!p) continue
         let x = layout.ti2x(p[0], i)
-        let y = layout.value2y(p[i1] || undefined)
+        let y = layout.value2y(p[i1] !== undefined ? p[i1] : undefined)
         ctx.lineTo(x, y)
     }
     for (var i = view.i2, i1 = view.i1; i >= i1; i--) {
         let p = data[i]
+        if (!p) continue
         let x = layout.ti2x(p[0], i)
-        let y = layout.value2y(p[i2] || undefined)
+        let y = layout.value2y(p[i2] !== undefined ? p[i2] : undefined)
         ctx.lineTo(x, y)
     }
     ctx.fill()
@@ -63,3 +66,17 @@ legend(x) => [
     [x[1], $props.color1], [x[2], $props.color1], [x[3], $props.color1],
     [x[4], $props.color2], [x[5], $props.color2], [x[6], $props.color2]
 ]
+
+preSampler(x) => [x[1], x[6]]
+
+static yRange(data) {
+    let len = data.length
+    var max = -Infinity, min = Infinity
+    for (var i = 0; i < len; i++) {
+        let p = data[i]
+        if (!p) continue
+        if (p[1] != null && p[1] > max) max = p[1]
+        if (p[6] != null && p[6] < min) min = p[6]
+    }
+    return [max, min]
+}

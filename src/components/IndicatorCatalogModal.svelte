@@ -289,7 +289,7 @@
             catLabel: "Volatilidad",
             desc: "Bandas multinivel de alta precisión con zonas sombreadas de soporte y resistencia.",
             pane: "main",
-            isOverlay: true
+            isOverlay: false
         },
 
         // --- VOLUMEN Y FLUJO ---
@@ -324,7 +324,7 @@
 
     const BASE_CATEGORIES = [
         { id: "all", label: "Todos" },
-        { id: "trend", label: "Medias Móviles / Tendencia" },
+        { id: "trend", label: "Tendencia" },
         { id: "oscillators", label: "Osciladores" },
         { id: "volatility", label: "Volatilidad" },
         { id: "volume", label: "Volumen" }
@@ -333,13 +333,19 @@
     $: CATEGORIES = customIndicators.length > 0
         ? [
             { id: "all", label: "Todos" },
-            { id: "custom", label: `Personalizados (${customIndicators.length})` },
-            { id: "trend", label: "Medias Móviles / Tendencia" },
+            { id: "custom", label: "Personalizados" },
+            { id: "trend", label: "Tendencia" },
             { id: "oscillators", label: "Osciladores" },
             { id: "volatility", label: "Volatilidad" },
             { id: "volume", label: "Volumen" }
           ]
         : BASE_CATEGORIES;
+
+    function getCategoryCount(catId) {
+        if (catId === "all") return allIndicators.length;
+        if (catId === "custom") return customIndicators.length;
+        return allIndicators.filter(i => i.category === catId).length;
+    }
 
     events.on("open-indicators-modal", onOpen);
 
@@ -414,7 +420,7 @@
 
         let chartW = (layout?.width && layout.width > 200 ? layout.width : window.innerWidth) || 800;
         let chartH = (layout?.height && layout.height > 200 ? layout.height : window.innerHeight) || 600;
-        modalX = Math.max(20, Math.floor((chartW - 540) / 2));
+        modalX = Math.max(20, Math.floor((chartW - 700) / 2));
         modalY = Math.max(20, Math.floor((chartH - 520) / 2));
 
         open = true;
@@ -513,65 +519,71 @@
             {/if}
         </div>
 
-        <!-- Category Pills -->
-        <div class="tv-cat-pills">
-            {#each CATEGORIES as cat}
-                <button
-                    class="tv-cat-pill"
-                    class:active={selectedCategory === cat.id}
-                    on:click={() => selectedCategory = cat.id}
-                >
-                    {cat.label}
-                </button>
-            {/each}
-        </div>
-
-        <!-- Indicators List -->
-        <div class="tv-ind-list">
-            {#if filteredIndicators.length === 0}
-                <div class="tv-empty-list">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#787b86" stroke-width="1.5">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                    <span>No se encontraron indicadores para "{searchQuery}"</span>
-                </div>
-            {:else}
-                {#each filteredIndicators as item}
-                    <!-- svelte-ignore a11y-click-events-have-key-events -->
-                    <div class="tv-ind-item" on:click={() => addIndicatorItem(item)}>
-                        <div class="tv-ind-main">
-                            <div class="tv-ind-header">
-                                <span class="tv-ind-type">{item.type}</span>
-                                <span class="tv-ind-name">{item.name}</span>
-                            </div>
-                            <div class="tv-ind-desc">{item.desc}</div>
-                        </div>
-
-                        <div class="tv-ind-meta">
-                            <span class="tv-badge-cat" class:custom={item.isCustom}>{item.catLabel}</span>
-                            <span class="tv-badge-pane" class:main={item.pane === "main"}>
-                                {item.pane === "main" ? "Panel Principal" : "Sub-panel"}
-                            </span>
-                            {#if item.author}
-                                <span class="tv-badge-author" title="Autor">{item.author}</span>
-                            {/if}
-                            <button
-                                class="tv-add-btn"
-                                class:added={lastAdded === item.type}
-                                title="Añadir al gráfico"
-                                on:click|stopPropagation={() => addIndicatorItem(item)}
-                            >
-                                {#if lastAdded === item.type}
-                                    ✓
-                                {:else}
-                                    +
-                                {/if}
-                            </button>
-                        </div>
-                    </div>
+        <!-- 2 Columns Layout Body: Left Menu & Right Indicators List -->
+        <div class="tv-catalog-body">
+            <!-- Left Column: Categorías Menu -->
+            <div class="tv-cat-sidebar">
+                <div class="tv-cat-sidebar-title">Categorías</div>
+                {#each CATEGORIES as cat}
+                    {@const count = getCategoryCount(cat.id)}
+                    <button
+                        class="tv-cat-btn"
+                        class:active={selectedCategory === cat.id}
+                        on:click={() => selectedCategory = cat.id}
+                    >
+                        <span class="tv-cat-name">{cat.label}</span>
+                        <span class="tv-cat-count">{count}</span>
+                    </button>
                 {/each}
-            {/if}
+            </div>
+
+            <!-- Right Column: Lista de Indicadores -->
+            <div class="tv-ind-list">
+                {#if filteredIndicators.length === 0}
+                    <div class="tv-empty-list">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#787b86" stroke-width="1.5">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <span>No se encontraron indicadores para "{searchQuery}"</span>
+                    </div>
+                {:else}
+                    {#each filteredIndicators as item}
+                        <!-- svelte-ignore a11y-click-events-have-key-events -->
+                        <div class="tv-ind-item" on:click={() => addIndicatorItem(item)}>
+                            <div class="tv-ind-main">
+                                <div class="tv-ind-header">
+                                    <span class="tv-ind-type">{item.type}</span>
+                                    <span class="tv-ind-name">{item.name}</span>
+                                </div>
+                                <div class="tv-ind-desc">{item.desc}</div>
+                            </div>
+
+                            <div class="tv-ind-meta">
+                                <span class="tv-badge-cat" class:custom={item.isCustom}>{item.catLabel}</span>
+                                <span class="tv-badge-pane" class:main={item.pane === "main"}>
+                                    {item.pane === "main" ? "Principal" : "Sub-panel"}
+                                </span>
+                                {#if item.author}
+                                    <span class="tv-badge-author" title="Autor">{item.author}</span>
+                                {/if}
+                                <button
+                                    class="tv-add-btn"
+                                    class:added={lastAdded === item.type}
+                                    title="Añadir al gráfico"
+                                    on:click|stopPropagation={() => addIndicatorItem(item)}
+                                >
+                                    {#if lastAdded === item.type}
+                                        ✓
+                                    {:else}
+                                        +
+                                    {/if}
+                                </button>
+                            </div>
+                        </div>
+                    {/each}
+                {/if}
+            </div>
         </div>
 
         <!-- Footer -->
@@ -586,23 +598,24 @@
     .nvjs-indicators-modal {
         position: absolute;
         z-index: 10000;
-        width: 520px;
-        max-width: 90vw;
+        width: 700px;
+        max-width: 94vw;
         background: #1e222d;
         border: 1px solid #2a2e39;
         border-radius: 8px;
         box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
         color: #d1d4dc;
         font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif;
-        font-size: 13px;
+        font-size: 12px;
         user-select: none;
         pointer-events: all;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
     }
 
     .tv-modal-header {
-        padding: 14px 18px;
+        padding: 12px 18px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -616,7 +629,7 @@
         gap: 10px;
     }
     .tv-title-text {
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 700;
         color: #ffffff;
     }
@@ -640,13 +653,15 @@
     /* Search Bar */
     .tv-search-bar {
         position: relative;
-        padding: 12px 18px 8px 18px;
+        padding: 10px 16px;
         display: flex;
         align-items: center;
+        border-bottom: 1px solid #2a2e39;
+        background: #1e222d;
     }
     .tv-search-icon {
         position: absolute;
-        left: 30px;
+        left: 28px;
         color: #787b86;
         pointer-events: none;
     }
@@ -656,8 +671,8 @@
         border: 1px solid #363c4e;
         border-radius: 6px;
         color: #ffffff;
-        padding: 8px 32px 8px 36px;
-        font-size: 13px;
+        padding: 7px 30px 7px 34px;
+        font-size: 12px;
         outline: none;
         transition: border-color 0.15s;
     }
@@ -666,62 +681,102 @@
     }
     .tv-clear-search {
         position: absolute;
-        right: 28px;
+        right: 26px;
         background: transparent;
         border: none;
         color: #787b86;
         cursor: pointer;
-        font-size: 12px;
+        font-size: 11px;
         padding: 4px;
     }
     .tv-clear-search:hover {
         color: #ffffff;
     }
 
-    /* Category Pills */
-    .tv-cat-pills {
+    /* 2 Columns Layout Body */
+    .tv-catalog-body {
         display: flex;
-        gap: 6px;
-        padding: 4px 18px 10px 18px;
-        overflow-x: auto;
-        border-bottom: 1px solid #2a2e39;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-    }
-    .tv-cat-pills::-webkit-scrollbar {
-        display: none;
-    }
-    .tv-cat-pill {
-        background: #131722;
-        border: 1px solid #363c4e;
-        color: #787b86;
-        padding: 5px 10px;
-        border-radius: 14px;
-        font-size: 11.5px;
-        font-weight: 600;
-        cursor: pointer;
-        white-space: nowrap;
-        transition: all 0.15s;
-    }
-    .tv-cat-pill:hover {
-        color: #d1d4dc;
-        border-color: #787b86;
-    }
-    .tv-cat-pill.active {
-        background: #2962ff;
-        border-color: #2962ff;
-        color: #ffffff;
+        height: 380px;
+        min-height: 280px;
+        max-height: 60vh;
+        overflow: hidden;
     }
 
-    /* Indicators List */
+    /* Left Column: Categories Sidebar */
+    .tv-cat-sidebar {
+        width: 175px;
+        min-width: 175px;
+        background: #161922;
+        border-right: 1px solid #2a2e39;
+        padding: 8px 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow-y: auto;
+    }
+    .tv-cat-sidebar-title {
+        font-size: 9.5px;
+        font-weight: 700;
+        color: #5d606b;
+        letter-spacing: 0.6px;
+        padding: 4px 8px 6px 8px;
+        text-transform: uppercase;
+    }
+    .tv-cat-btn {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        text-align: left;
+        padding: 7px 9px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #9ea2ae;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        transition: all 0.12s ease;
+        border-left: 3px solid transparent;
+    }
+    .tv-cat-btn:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: #ffffff;
+    }
+    .tv-cat-btn.active {
+        background: rgba(41, 98, 255, 0.16);
+        color: #ffffff;
+        font-weight: 600;
+        border-left: 3px solid #2962ff;
+    }
+    .tv-cat-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .tv-cat-count {
+        font-size: 10px;
+        color: #5d606b;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 1px 5px;
+        border-radius: 10px;
+        margin-left: 6px;
+    }
+    .tv-cat-btn.active .tv-cat-count {
+        color: #2962ff;
+        background: rgba(41, 98, 255, 0.22);
+        font-weight: 600;
+    }
+
+    /* Right Column: Indicators List */
     .tv-ind-list {
-        padding: 8px 12px;
-        max-height: 340px;
-        min-height: 200px;
+        flex: 1;
+        min-width: 0;
+        padding: 6px 8px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 3px;
         scrollbar-width: thin;
         scrollbar-color: #363c4e transparent;
     }
@@ -740,14 +795,14 @@
     }
 
     .tv-ind-item {
-        padding: 10px 12px;
-        border-radius: 6px;
+        padding: 6px 10px;
+        border-radius: 4px;
         display: flex;
         align-items: center;
         justify-content: space-between;
         cursor: pointer;
-        transition: background 0.15s;
-        gap: 12px;
+        transition: background 0.12s;
+        gap: 10px;
     }
     .tv-ind-item:hover {
         background: #2a2e39;
@@ -756,7 +811,7 @@
     .tv-ind-main {
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 2px;
         flex: 1;
         min-width: 0;
     }
@@ -764,22 +819,22 @@
     .tv-ind-header {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
     }
     .tv-ind-type {
         font-weight: 700;
         color: #2962ff;
-        font-size: 13.5px;
+        font-size: 11.5px;
     }
     .tv-ind-name {
         color: #ffffff;
         font-weight: 600;
-        font-size: 13px;
+        font-size: 11.5px;
     }
     .tv-ind-desc {
-        font-size: 11.5px;
-        color: #787b86;
-        line-height: 1.35;
+        font-size: 10px;
+        color: #848e9c;
+        line-height: 1.3;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -788,16 +843,17 @@
     .tv-ind-meta {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
+        flex-shrink: 0;
     }
 
     .tv-badge-cat {
         background: rgba(41, 98, 255, 0.15);
         color: #2962ff;
         border: 1px solid rgba(41, 98, 255, 0.3);
-        padding: 3px 6px;
-        border-radius: 4px;
-        font-size: 10.5px;
+        padding: 2px 5px;
+        border-radius: 3px;
+        font-size: 9.5px;
         white-space: nowrap;
     }
     .tv-badge-cat.custom {
@@ -806,20 +862,20 @@
         border: 1px solid rgba(168, 85, 247, 0.35);
     }
     .tv-badge-author {
-        font-size: 10.5px;
+        font-size: 9.5px;
         color: #9ca3af;
         background: rgba(255, 255, 255, 0.05);
-        padding: 3px 6px;
-        border-radius: 4px;
+        padding: 2px 5px;
+        border-radius: 3px;
         white-space: nowrap;
     }
 
     .tv-badge-pane {
         background: rgba(245, 158, 11, 0.15);
         color: #f59e0b;
-        padding: 3px 6px;
-        border-radius: 4px;
-        font-size: 10.5px;
+        padding: 2px 5px;
+        border-radius: 3px;
+        font-size: 9.5px;
         white-space: nowrap;
     }
     .tv-badge-pane.main {
@@ -831,13 +887,13 @@
         background: #131722;
         border: 1px solid #363c4e;
         color: #d1d4dc;
-        width: 26px;
-        height: 26px;
-        border-radius: 4px;
+        width: 22px;
+        height: 22px;
+        border-radius: 3px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 15px;
+        font-size: 13px;
         font-weight: bold;
         cursor: pointer;
         transition: all 0.15s;
