@@ -92,7 +92,11 @@
         // console.log(layout) // DEBUG
     });
 
+    let cursorRaf = null;
+    let pendingCursor = null;
+
     onDestroy(() => {
+        if (cursorRaf) cancelAnimationFrame(cursorRaf);
         // Clean-up event listeners on 'chart' component
         events.off("chart");
     });
@@ -100,20 +104,51 @@
     function onCursorChanged($cursor, emit = true) {
         // Emit a global event (hook)
         if ($cursor.mode) cursor.mode = $cursor.mode;
-        if (cursor.mode !== "explore") {
-            cursor.xSync(hub, layout, chartProps, $cursor);
-            if ($cursor.visible === false) {
-                // One more update to hide the cursor
-                setTimeout(() => update());
+
+        if ($cursor.visible === false) {
+            if (cursorRaf) {
+                cancelAnimationFrame(cursorRaf);
+                cursorRaf = null;
             }
+            if (cursor.mode !== "explore" && layout) {
+                cursor.xSync(hub, layout, chartProps, $cursor);
+            }
+            if (emit)
+                events.emit(
+                    "$cursor-update",
+                    Utils.makeCursorEvent($cursor, cursor, layout),
+                );
+            cursor = cursor;
+            if (layout) {
+                events.emit("update-pane", layout);
+                events.emitSpec("botbar", "update-bb", layout);
+            }
+            if (emit) events.emit("$chart-update");
+            return;
         }
-        if (emit)
-            events.emit(
-                "$cursor-update",
-                Utils.makeCursorEvent($cursor, cursor, layout),
-            );
-        //if (cursor.locked) return // filter double updates (*)
-        update();
+
+        pendingCursor = { cursor: $cursor, emit };
+        if (!cursorRaf) {
+            cursorRaf = requestAnimationFrame(() => {
+                cursorRaf = null;
+                if (!pendingCursor || !layout) return;
+                let { cursor: c, emit: e } = pendingCursor;
+                pendingCursor = null;
+
+                if (cursor.mode !== "explore") {
+                    cursor.xSync(hub, layout, chartProps, c);
+                }
+                if (e)
+                    events.emit(
+                        "$cursor-update",
+                        Utils.makeCursorEvent(c, cursor, layout),
+                    );
+                cursor = cursor;
+                events.emit("update-pane", layout);
+                events.emitSpec("botbar", "update-bb", layout);
+                if (e) events.emit("$chart-update");
+            });
+        }
     }
 
     function onCursorLocked(state) {
@@ -139,8 +174,11 @@
     }
 
     function quantizeCursor() {
+        if (!layout) return;
         cursor.xSync(hub, layout, chartProps, cursor);
-        update();
+        cursor = cursor;
+        events.emit("update-pane", layout);
+        events.emitSpec("botbar", "update-bb", layout);
     }
 
     function update(opt = {}, emit = true) {

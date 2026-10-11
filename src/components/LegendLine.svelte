@@ -50,6 +50,7 @@
 
     $: name = ov.name ?? `${ov.type || "Overlay"}-${ov.id}`;
     $: fontSz = parseInt(props.config.FONT.split("px").shift());
+    $: layoutWidth = layout?.width ?? 0;
     $: styleBase = `
     font: ${props.config.FONT};
     font-size: ${fontSz + (ov.main ? 5 : 3)}px;
@@ -58,7 +59,7 @@
     background: ${selected ? props.colors.back : props.colors.llBack};
     border: 1px solid ${selected ? props.colors.llSelect : "transparent"};
     margin-right: 30px;
-    max-width: ${layout.width - 20}px;
+    max-width: ${layoutWidth - 20}px;
     overflow: visible;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -111,16 +112,56 @@
             : null;
     $: data =
         cursorData && cursorData.length ? cursorData : lastDataPoint || [];
-    $: scale = findOverlayScale(layout.scales);
+    $: scale = findOverlayScale(layout?.scales);
     $: prec = scale?.prec ?? 2;
     $: display = ov.settings.display !== false;
     $: state = display ? "open" : "closed";
-    // Disable legend if legend() returns null dynamically
-    $: if (legend && data && !legend(data, prec)) show = false;
+
+    let renderedHtml = "";
+
+    function computeLegendHtml(d, p) {
+        if (!d || !d.length) return "";
+        if (ov.settings.legendHtml) return ov.settings.legendHtml;
+        if (legendHtml) return legendHtml(d, p, formatter);
+        if (legend) {
+            let items = legend(d, p);
+            if (!items || !items.length) return "";
+            let res = "";
+            for (let i = 0; i < items.length; i++) {
+                let item = items[i];
+                if (!item) continue;
+                res += `<span class="nvjs-ll-value" style="color: ${item[1]}">${formatter(item[0], p)}</span>`;
+            }
+            return res;
+        }
+        let res = "";
+        for (let i = 1; i < d.length; i++) {
+            let v = d[i];
+            if (v != null) {
+                res += `<span class="nvjs-ll-value">${formatter(v, p)}</span>`;
+            } else {
+                res += `<span class="nvjs-ll-x">x</span>`;
+            }
+        }
+        return res;
+    }
+
+    $: {
+        let nextHtml = computeLegendHtml(data, prec);
+        if (nextHtml !== renderedHtml) {
+            renderedHtml = nextHtml;
+            if (legend && data && data.length && !renderedHtml) {
+                show = false;
+            } else if (!show && renderedHtml) {
+                show = true;
+            }
+        }
+    }
 
     function update() {
         display = ov.settings.display !== false;
         metaVersion++;
+        renderedHtml = "";
         if (ctrlRef) ctrlRef.update();
     }
 
@@ -168,10 +209,11 @@
 
     // Find overlay's scale (by searching in ovIdxs)
     function findOverlayScale(scales) {
+        if (!scales) return null;
         return (
             Object.values(scales).find((x) =>
                 x.scaleSpecs.ovIdxs.includes(ov.id),
-            ) || scales[layout.scaleIndex]
+            ) || scales[layout?.scaleIndex]
         );
     }
 
@@ -209,30 +251,7 @@
             </span>
             {#if display && !hover}
                 <span class="nvjs-ll-data" style={dataStyle}>
-                    {#if ov.settings.legendHtml}
-                        {@html ov.settings.legendHtml}
-                    {:else if legendHtml && data && data.length}
-                        {@html legendHtml(data, prec, formatter)}
-                    {:else if legend && data && data.length}
-                        {#each legend(data, prec) || [] as v, i}
-                            <span class="nvjs-ll-value" style={`color: ${v[1]}`}>
-                                {formatter(v[0])}
-                            </span>
-                        {/each}
-                    {:else if data && data.length}
-                        {#each data as v, i}
-                            {#if i > 0}
-                                <!-- filter out time -->
-                                {#if v != null}
-                                    <span class="nvjs-ll-value">
-                                        {formatter(v)}
-                                    </span>
-                                {:else}
-                                    <span class="nvjs-ll-x">x</span>
-                                {/if}
-                            {/if}
-                        {/each}
-                    {/if}
+                    {@html renderedHtml}
                 </span>
             {/if}
         </div>

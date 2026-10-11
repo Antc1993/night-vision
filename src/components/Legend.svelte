@@ -16,9 +16,11 @@
 
     let collapsed = false;
 
+    $: sbMaxLeft = (layout?.sbMax?.[0] ?? 0) + 5;
+    $: offsetTop = (layout?.offset ?? 0) + 5;
     $: style = `
-    left: ${layout.sbMax[0] + 5}px;
-    top: ${(layout.offset || 0) + 5}px;
+    left: ${sbMaxLeft}px;
+    top: ${offsetTop}px;
     position: absolute;
 `;
 
