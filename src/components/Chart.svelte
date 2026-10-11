@@ -163,10 +163,10 @@
         if (emit) events.emit("$range-update", $range);
         rangeUpdate($range);
         hub.updateRange(range);
-        // TODO: Shoud be enabled (*), but it creates cursor lag
-        if (cursor.locked) return; // filter double updates (**)
-        cursor.xValues(hub, layout, chartProps);
-        cursor.yValues(layout);
+        if (!cursor.locked) {
+            cursor.xValues(hub, layout, chartProps);
+            cursor.yValues(layout);
+        }
         update();
         // Quantize cursor after events stop coming in
         let Q = props.config.QUANTIZE_AFTER;
@@ -201,20 +201,20 @@
     // TODO: we can update only panes with
     // overlay changes. But it requires more work
     function fullUpdate(opt = {}) {
-        let prevIbMode = scan.ibMode;
+        let prevIbMode = !!scan.ibMode;
         interval = scan.detectInterval();
         timeFrame = scan.getTimeframe();
-        let ibc = scan.ibMode !== prevIbMode;
+        let ibc = !!scan.ibMode !== prevIbMode;
         if (!range.length || opt.resetRange || ibc) {
             rangeUpdate(scan.defaultRange());
         }
         scan.calcIndexOffsets();
-        hub.calcSubset(range);
         hub.init(hub.data);
         hub.detectMain();
+        hub.calcSubset(range);
         hub.loadScripts();
         meta.init(props);
-        meta.restore();
+        if (typeof meta.restore === "function") meta.restore();
         scan.updatePanesHash();
         update();
         events.emit("remake-grid");

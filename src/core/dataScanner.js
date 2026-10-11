@@ -41,8 +41,9 @@ class DataScanner {
         } else {
             this.tf = Utils.detectTimeframe(this.main)
         }
-        this.interval = this.hub.data.indexBased ? 1 : this.tf
-        this.ibMode = this.hub.data.indexBased
+        let isIb = !!(this.hub.data?.indexBased ?? this.hub.indexBased ?? this.props?.indexBased)
+        this.interval = isIb ? 1 : this.tf
+        this.ibMode = isIb
 
         return this.interval
 

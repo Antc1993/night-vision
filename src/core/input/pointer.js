@@ -141,6 +141,7 @@ export default class Input {
             }
             this.drug = null
             this.events.emit('cursor-locked', false)
+            this.changeRange()
         })
 
         mc.on('tap', event => {
@@ -482,16 +483,19 @@ export default class Input {
         let l = data.length - 1
         let range = this.range
         let layout = this.layout
+        let tiFn = (layout && typeof layout.ti === 'function')
+            ? layout.ti.bind(layout)
+            : ((t, i) => this.hub.indexBased ? i : t)
 
         range[0] = Utils.clamp(
             range[0],
             -Infinity,
-            layout.ti(data[l][0], l) - this.interval * 5.5,
+            tiFn(data[l][0], l) - this.interval * 5.5,
         )
 
         range[1] = Utils.clamp(
             range[1],
-            layout.ti(data[0][0], 0) + this.interval * 5.5,
+            tiFn(data[0][0], 0) + this.interval * 5.5,
             Infinity
         )
 

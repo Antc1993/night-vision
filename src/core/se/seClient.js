@@ -99,7 +99,7 @@ class SeClient {
                 pane.overlays.push(...p.overlays)
             }
         }
-        let range = this.chart.range || (this.hub.chart ? this.hub.chart.range : []) || []
+        let range = (this.chart?.range?.length) ? this.chart.range : (this.scan?.defaultRange() || [])
         this.hub.calcSubset(range)
         this.chart.update('layout', { updateHash: true })
         this.chart.update('grid')
@@ -126,7 +126,7 @@ class SeClient {
                 }
             }
         }
-        let range = this.chart.range || (this.hub.chart ? this.hub.chart.range : []) || []
+        let range = (this.chart?.range?.length) ? this.chart.range : (this.scan?.defaultRange() || [])
         this.hub.calcSubset(range)
         this.chart.update('layout', { updateHash: true })
         this.chart.update('grid')
