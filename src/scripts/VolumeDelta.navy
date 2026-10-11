@@ -27,7 +27,9 @@ draw(ctx) {
     const halfW = Math.floor(w / 2)
     const baseY = layout.height
 
-    const isMainPane = !!(layout?.main || !layout?.mainGrid || $core.paneId === 0 || $core.paneId === ($core.hub?.mainPaneId ?? 0))
+    const paneOverlays = $core.hub?.panes()?.[$core.paneId]?.overlays || []
+    const hasMainCandles = paneOverlays.some(o => o.main && o.type !== 'VolumeDelta')
+    const isMainPane = hasMainCandles || ($core.paneId === $core.hub?.mainPaneId && paneOverlays.length > 1)
 
     // Determine max volume across view subset
     let maxV = 0

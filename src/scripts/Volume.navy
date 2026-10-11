@@ -30,7 +30,9 @@ draw(ctx) {
     const halfW = Math.floor(w / 2)
     const baseY = layout.height
 
-    const isMainPane = !!(layout?.main || !layout?.mainGrid || $core.paneId === 0 || $core.paneId === ($core.hub?.mainPaneId ?? 0))
+    const paneOverlays = $core.hub?.panes()?.[$core.paneId]?.overlays || []
+    const hasMainCandles = paneOverlays.some(o => o.main && o.type !== 'Volume' && o.type !== 'VolumeMain')
+    const isMainPane = hasMainCandles || ($core.paneId === $core.hub?.mainPaneId && paneOverlays.length > 1)
     let maxV = 0
     for (let i = view.i1, n = view.i2; i <= n; i++) {
         let p = data[i]

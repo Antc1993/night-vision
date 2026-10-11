@@ -99,7 +99,7 @@ function Layout(props, hub, meta) {
             width: props.width,
             height: props.config.BOTBAR,
             offset: offset,
-            xs: grids[0] ? grids[0].xs : []
+            xs: (grids.find(x => x.main) || grids[0]) ? (grids.find(x => x.main) || grids[0]).xs : []
         }
     }
 }

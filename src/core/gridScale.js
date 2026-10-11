@@ -78,10 +78,13 @@ export default function Scale(id, src, specs) {
         for (var ov of ovs) {
             if (ov.settings.display === false) continue
 
-            // If this is a volume overlay on the main pane, it should never affect the main price scale
-            let isMain = (gridId === 0 || gridId === (hub.mainPaneId ?? 0))
+            // If this is a volume overlay on the main pane (alongside main candles), it should never affect the main price scale
+            let isMainPane = (hub.mainPaneId !== null && hub.mainPaneId !== undefined)
+                ? (gridId === hub.mainPaneId)
+                : !!(hub.panes()[gridId]?.overlays?.some(x => x.main))
             let isVol = ov.type === 'Volume' || ov.type === 'VolumeMain' || ov.type === 'VolumeDelta'
-            if (isMain && isVol) continue
+            let hasCandles = !!(hub.panes()[gridId]?.overlays?.some(x => x.main))
+            if (isMainPane && isVol && hasCandles) continue
 
             let yfn = (meta.yRangeFns[gridId] || [])[ov.id]
             let yfnStatic = prefabs[ov.type]?.static?.yRange 
