@@ -62,6 +62,14 @@ export default class Triangle {
         ctx.lineWidth = sett.lineWidth || 1.5
         ctx.strokeStyle = sett.color || '#33ff33'
 
+        if (sett.lineStyle === 'dashed') {
+            ctx.setLineDash([6, 6])
+        } else if (sett.lineStyle === 'dotted') {
+            ctx.setLineDash([2, 4])
+        } else {
+            ctx.setLineDash([])
+        }
+
         if (this.step === 2 && this.isDrawing) {
             // Only line between P1 and P2 during step 2
             ctx.beginPath()
@@ -85,6 +93,7 @@ export default class Triangle {
 
             ctx.stroke()
         }
+        ctx.setLineDash([])
 
         const text = this.data.text || sett.text
         if (text && this.step !== 2) {
@@ -119,7 +128,7 @@ export default class Triangle {
         }
         ctx.fill()
 
-        ctx.fillStyle = '#ffffff'
+        ctx.fillStyle = sett.textColor || '#ffffff'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(text, midX, midY)

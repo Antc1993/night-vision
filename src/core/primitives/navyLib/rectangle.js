@@ -63,6 +63,15 @@ export default class Rectangle {
         const sett = this.data.settings || {}
         ctx.lineWidth = sett.lineWidth || 1
         ctx.strokeStyle = sett.color || '#33ff33'
+
+        if (sett.lineStyle === 'dashed') {
+            ctx.setLineDash([6, 6])
+        } else if (sett.lineStyle === 'dotted') {
+            ctx.setLineDash([2, 4])
+        } else {
+            ctx.setLineDash([])
+        }
+
         ctx.beginPath()
         ctx.rect(this.rect.x, this.rect.y, this.rect.width, this.rect.height)
 
@@ -75,6 +84,7 @@ export default class Rectangle {
         }
 
         ctx.stroke()
+        ctx.setLineDash([])
 
         const text = this.data.text || sett.text
         if (text) {
@@ -111,7 +121,7 @@ export default class Rectangle {
         }
         ctx.fill()
 
-        ctx.fillStyle = '#ffffff'
+        ctx.fillStyle = sett.textColor || '#ffffff'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(text, midX, midY)

@@ -76,7 +76,7 @@ export default class TextAnnotation {
         }
 
         // Draw text
-        ctx.fillStyle = sett.color || '#ffffff'
+        ctx.fillStyle = sett.textColor || sett.color || '#ffffff'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(text, x, y)

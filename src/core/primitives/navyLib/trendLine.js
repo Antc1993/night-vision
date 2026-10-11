@@ -74,9 +74,13 @@ export default class TrendLine {
         const sett = this.data.settings || {}
         ctx.lineWidth = sett.lineWidth || 1
         ctx.strokeStyle = sett.color || '#33ff33'
+        if (sett.lineStyle === 'dashed') ctx.setLineDash([6, 4])
+        else if (sett.lineStyle === 'dotted') ctx.setLineDash([2, 3])
+        else ctx.setLineDash([])
         ctx.beginPath()
         this.line.draw(ctx)
         ctx.stroke()
+        ctx.setLineDash([])
 
         const text = this.data.text || sett.text
         if (text) {
@@ -134,7 +138,7 @@ export default class TrendLine {
         }
         ctx.fill()
 
-        ctx.fillStyle = '#ffffff'
+        ctx.fillStyle = sett.textColor || '#ffffff'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(text, midX, midY)
