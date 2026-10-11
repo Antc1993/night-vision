@@ -66,6 +66,7 @@
         measure: MeasureStyle,
         range: MeasureStyle,
         text: TextStyle,
+        "price-label": TextStyle,
         long: PositionStyle,
         short: PositionStyle,
         position: PositionStyle,
@@ -114,16 +115,17 @@
             "position",
             "long",
             "short",
-            "text"
+            "text",
+            "price-label"
         ].includes(type);
     }
 
     function hasLineWidth(type) {
-        return type !== "text";
+        return type !== "text" && type !== "price-label";
     }
 
     function hasLineStyle(type) {
-        return type !== "text";
+        return type !== "text" && type !== "price-label";
     }
 
     function hasTextColor(type) {
@@ -137,6 +139,8 @@
 
     function getToolTitle(type) {
         switch (type) {
+            case "price-label":
+                return "Etiqueta de precio";
             case "rectangle":
                 return "Rectángulo";
             case "triangle":
@@ -772,7 +776,7 @@
                         bind:p1Bar={coordP1Bar}
                         bind:p2Price={coordP2Price}
                         bind:p2Bar={coordP2Bar}
-                        hasP2={selectedTool.type !== "horizontal" && selectedTool.type !== "vertical" && selectedTool.type !== "ray" && selectedTool.type !== "horizontal-ray" && selectedTool.type !== "text"}
+                        hasP2={selectedTool.type !== "horizontal" && selectedTool.type !== "vertical" && selectedTool.type !== "ray" && selectedTool.type !== "horizontal-ray" && selectedTool.type !== "text" && selectedTool.type !== "price-label"}
                         onUpdate={() => emitUpdate(true)}
                     />
                 {:else if activeTab === "text"}

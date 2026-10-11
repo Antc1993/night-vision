@@ -80,6 +80,8 @@
             events.emit("tool-path", "nada");
         } else if (type === "text") {
             events.emit("tool-text", "nada");
+        } else if (type === "price-label") {
+            events.emit("tool-price-label", "nada");
         } else if (type === "long") {
             events.emit("tool-long", "nada");
         } else if (type === "short") {
@@ -382,16 +384,63 @@
         </button>
     </div>
 
-    <!-- 5. Text Tool -->
-    <div class="nvjs-tb-item-wrapper">
+    <!-- 5. Text & Price Label Tools (Grouped) with Flyout Arrow -->
+    <div class="nvjs-tb-item-wrapper has-arrow">
         <button
             class="nvjs-tb-btn"
-            class:active={activeTool === "text"}
-            on:click={() => selectTool("text", "nada")}
-            title="Texto / Anotación"
+            class:active={activeTool === "text" || activeTool === "price-label"}
+            on:click={() => selectTool(activeTool === "price-label" ? "price-label" : "text", "nada")}
+            title={activeTool === "price-label" ? "Etiqueta de precio" : "Texto / Anotación"}
         >
-            <span style="font-size: 16px; font-weight: 700; font-family: sans-serif;">T</span>
+            {#if activeTool === "price-label"}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    <line x1="8" y1="9" x2="16" y2="9"></line>
+                    <line x1="8" y1="13" x2="13" y2="13"></line>
+                </svg>
+            {:else}
+                <span style="font-size: 16px; font-weight: 700; font-family: sans-serif;">T</span>
+            {/if}
         </button>
+        <button
+            class="nvjs-tb-arrow-btn"
+            class:active={openFlyout === "text-group"}
+            on:click={(e) => toggleFlyout("text-group", e)}
+            title="Opciones de texto y etiquetas"
+        >
+            <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="0,0 24,12 0,24"></polygon>
+            </svg>
+        </button>
+
+        {#if openFlyout === "text-group"}
+            <div class="nvjs-tb-flyout">
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "text"}
+                    on:click={() => selectTool("text", "nada")}
+                >
+                    <span class="nvjs-flyout-icon">
+                        <span style="font-size: 14px; font-weight: 700; font-family: sans-serif;">T</span>
+                    </span>
+                    <span>Texto</span>
+                </button>
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "price-label"}
+                    on:click={() => selectTool("price-label", "nada")}
+                >
+                    <span class="nvjs-flyout-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            <line x1="8" y1="9" x2="16" y2="9"></line>
+                            <line x1="8" y1="13" x2="13" y2="13"></line>
+                        </svg>
+                    </span>
+                    <span>Etiqueta de precio</span>
+                </button>
+            </div>
+        {/if}
     </div>
 
     <!-- 6. Position Tool (Long / Short) with Flyout Arrow -->

@@ -11,16 +11,25 @@ let startDrawTool = false
 init() {
     // Restore texts from dataExt
     for (var t of $core.dataExt.texts || []) {
-        texts[t.uuid] = new $lib.TextAnnotation($core, t)
+        if (t.type === 'price-label') {
+            texts[t.uuid] = new $lib.PriceLabel($core, t)
+        } else {
+            texts[t.uuid] = new $lib.TextAnnotation($core, t)
+        }
         texts[t.uuid].onSelect = textSelected
     }
 
     const handleToolText = event => {
-        startDrawTool = true
+        startDrawTool = 'text'
+    }
+    const handleToolPriceLabel = event => {
+        startDrawTool = 'price-label'
     }
     $events.on($core.uuid + ':tool-text', handleToolText)
+    $events.on($core.uuid + ':tool-price-label', handleToolPriceLabel)
     if ($core.dataExt && $core.dataExt.uuid) {
         $events.on($core.dataExt.uuid + ':tool-text', handleToolText)
+        $events.on($core.dataExt.uuid + ':tool-price-label', handleToolPriceLabel)
     }
 
     $events.on($core.uuid + ':tool-started', activeUuid => {
@@ -92,7 +101,7 @@ draw(ctx) {
     }
 }
 
-newText() {
+newText(toolType = 'text') {
     if (!$core.dataExt.texts) {
         $core.dataExt.texts = []
     }
@@ -110,24 +119,44 @@ newText() {
     let $ = layout && layout.y2value ? layout.y2value(cy) : 0
     let uuid = $lib.Utils.uuid3()
 
-    let textData = {
-        type: 'text',
-        p1: [t, $],
-        text: 'Texto',
-        settings: {
-            color: '#ffffff',
-            backColor: 'rgba(18, 22, 34, 0.9)',
-            fontSize: 14,
-            bold: false,
-            italic: false,
-            showBackground: false,
-            border: false
-        },
-        uuid: uuid
+    let textData
+    if (toolType === 'price-label') {
+        textData = {
+            type: 'price-label',
+            p1: [t, $],
+            text: '',
+            settings: {
+                color: '#2962ff',
+                backColor: '#2962ff',
+                textColor: '#ffffff',
+                fontSize: 13,
+                bold: true,
+                showBackground: true
+            },
+            uuid: uuid
+        }
+        $core.dataExt.texts.push(textData)
+        texts[uuid] = new $lib.PriceLabel($core, textData, true)
+    } else {
+        textData = {
+            type: 'text',
+            p1: [t, $],
+            text: 'Texto',
+            settings: {
+                color: '#ffffff',
+                backColor: 'rgba(18, 22, 34, 0.9)',
+                fontSize: 14,
+                bold: false,
+                italic: false,
+                showBackground: false,
+                border: false
+            },
+            uuid: uuid
+        }
+        $core.dataExt.texts.push(textData)
+        texts[uuid] = new $lib.TextAnnotation($core, textData, true)
     }
 
-    $core.dataExt.texts.push(textData)
-    texts[uuid] = new $lib.TextAnnotation($core, textData, true)
     texts[uuid].onSelect = textSelected
     texts[uuid].selected = true
 
@@ -151,7 +180,7 @@ textSelected($uuid, openSettings = false) {
         $events.emit('selection-event', {
             uuid: $uuid,
             overlayUuid: $core.uuid,
-            type: 'text',
+            type: selectedText.data.type || 'text',
             settings: selectedText.data.settings || {},
             data: selectedText.data,
             x: $core.mouse ? $core.mouse.x : 0,
@@ -197,7 +226,7 @@ dblclick(event) {
 
 mousedown(event) {
     if (startDrawTool) {
-        newText()
+        newText(startDrawTool === 'price-label' ? 'price-label' : 'text')
         if (event) event.__toolCaptured = true
         return
     }
