@@ -54,6 +54,24 @@ class NightVision {
         if (props.datafeed) {
             this.setDatafeed(props.datafeed, props.symbol, props.timeframe || props.interval)
         }
+
+        // Storage adapter integration (Save / Load)
+        this.storageAdapter = props.storageAdapter || null
+        if (this.storageAdapter && props.autoSave) {
+            let saveTimeout = null
+            this.on('chart:layout-changed', () => {
+                clearTimeout(saveTimeout)
+                saveTimeout = setTimeout(async () => {
+                    if (this.storageAdapter.saveLayout) {
+                        try {
+                            await this.storageAdapter.saveLayout(this.saveLayout())
+                        } catch (e) {
+                            console.error('[NightVision] AutoSave error:', e)
+                        }
+                    }
+                }, props.autoSaveDelay || 1500)
+            })
+        }
     }
 
     // *** PROPS ***
@@ -307,6 +325,191 @@ class NightVision {
         if (this.datafeedManager) {
             this.datafeedManager.setTimeframe(timeframe)
         }
+    }
+
+    // Event listener helper
+    on(event, handler) {
+        this.events.on(event, handler)
+    }
+
+    // Event unlistener helper
+    off(event, handler) {
+        this.events.off(event, handler)
+    }
+
+    // Export current user layout (drawings, indicators, pane configurations)
+    saveLayout(options = {}) {
+        const panes = this.hub ? this.hub.panes() : []
+        const mainOv = this.hub?.mainOv
+
+        const layoutData = {
+            version: 1,
+            timestamp: Date.now(),
+            chart: {
+                timezone: this.timezone,
+                range: options.includeRange ? this.range : undefined,
+                colors: this.colors ? JSON.parse(JSON.stringify(this.colors)) : {},
+                mainOverlay: mainOv ? {
+                    type: mainOv.type,
+                    props: JSON.parse(JSON.stringify(mainOv.props || {})),
+                    settings: JSON.parse(JSON.stringify(mainOv.settings || {}))
+                } : null
+            },
+            panes: panes.map((pane, index) => {
+                // 1. Drawing tools
+                const tools = (pane.overlays || [])
+                    .filter(ov => this.hub.isToolType(ov.type) || (ov.dataExt && Object.keys(ov.dataExt).length > 0))
+                    .map(ov => ({
+                        name: ov.name || ov.type,
+                        type: ov.type,
+                        props: JSON.parse(JSON.stringify(ov.props || {})),
+                        settings: JSON.parse(JSON.stringify(ov.settings || {})),
+                        dataExt: JSON.parse(JSON.stringify(ov.dataExt || {})),
+                        uuid: ov.uuid
+                    }))
+
+                // 2. Computed indicator scripts
+                const scripts = (pane.scripts || []).map(s => ({
+                    name: s.name || s.type,
+                    type: s.type,
+                    props: JSON.parse(JSON.stringify(s.props || {})),
+                    settings: JSON.parse(JSON.stringify(s.settings || {})),
+                    uuid: s.uuid
+                }))
+
+                // 3. Extra overlays (non-main, non-tools)
+                const extraOverlays = (pane.overlays || [])
+                    .filter(ov => !ov.main && !this.hub.isToolType(ov.type) && !(ov.dataExt && Object.keys(ov.dataExt).length > 0))
+                    .map(ov => ({
+                        name: ov.name || ov.type,
+                        type: ov.type,
+                        props: JSON.parse(JSON.stringify(ov.props || {})),
+                        settings: JSON.parse(JSON.stringify(ov.settings || {})),
+                        uuid: ov.uuid
+                    }))
+
+                return {
+                    id: index,
+                    isMain: pane === this.hub.chart || (pane.overlays && pane.overlays.some(o => o.main)),
+                    settings: JSON.parse(JSON.stringify(pane.settings || {})),
+                    tools,
+                    scripts,
+                    extraOverlays
+                }
+            })
+        }
+
+        return layoutData
+    }
+
+    // Restore user layout (drawings, indicators, pane configurations)
+    async loadLayout(layoutData) {
+        if (typeof layoutData === 'string') {
+            try {
+                layoutData = JSON.parse(layoutData)
+            } catch (e) {
+                console.error('[NightVision] loadLayout: Error parsing JSON string:', e)
+                return false
+            }
+        }
+        if (!layoutData || !Array.isArray(layoutData.panes)) {
+            console.error('[NightVision] loadLayout: Invalid layout data structure')
+            return false
+        }
+
+        // 1. Restore chart settings
+        if (layoutData.chart) {
+            if (layoutData.chart.timezone !== undefined) {
+                this.timezone = layoutData.chart.timezone
+            }
+            if (layoutData.chart.colors) {
+                this.colors = Object.assign(this.colors || {}, layoutData.chart.colors)
+            }
+            if (layoutData.chart.range && Array.isArray(layoutData.chart.range)) {
+                this.range = layoutData.chart.range
+            }
+            if (layoutData.chart.mainOverlay && this.hub.mainOv) {
+                if (layoutData.chart.mainOverlay.props) {
+                    Object.assign(this.hub.mainOv.props, layoutData.chart.mainOverlay.props)
+                }
+                if (layoutData.chart.mainOverlay.settings) {
+                    Object.assign(this.hub.mainOv.settings, layoutData.chart.mainOverlay.settings)
+                }
+            }
+        }
+
+        // 2. Locate current main candlestick overlay
+        const currentMainOv = this.hub.mainOv
+        let newPanes = []
+
+        for (let pData of layoutData.panes) {
+            let pane = {
+                settings: pData.settings || {},
+                scripts: (pData.scripts || []).map(s => ({
+                    name: s.name || s.type,
+                    type: s.type,
+                    props: s.props || {},
+                    settings: s.settings || {},
+                    uuid: s.uuid || Utils.uuid3(),
+                    __initialProps: JSON.parse(JSON.stringify(s.props || {})),
+                    __initialSettings: JSON.parse(JSON.stringify(s.settings || {}))
+                })),
+                overlays: [],
+                uuid: Utils.uuid3()
+            }
+
+            // Restore main candlestick chart if this was the main pane
+            if (pData.isMain && currentMainOv) {
+                pane.overlays.push(currentMainOv)
+            }
+
+            // Restore drawing tools
+            for (let t of (pData.tools || [])) {
+                pane.overlays.push({
+                    name: t.name || t.type,
+                    type: t.type,
+                    data: [],
+                    dataExt: t.dataExt || {},
+                    props: t.props || {},
+                    settings: t.settings || {},
+                    uuid: t.uuid || Utils.uuid3(),
+                    __initialProps: JSON.parse(JSON.stringify(t.props || {})),
+                    __initialSettings: JSON.parse(JSON.stringify(t.settings || {}))
+                })
+            }
+
+            // Restore extra overlays
+            for (let ov of (pData.extraOverlays || [])) {
+                pane.overlays.push({
+                    name: ov.name || ov.type,
+                    type: ov.type,
+                    data: [],
+                    props: ov.props || {},
+                    settings: ov.settings || {},
+                    uuid: ov.uuid || Utils.uuid3(),
+                    __initialProps: JSON.parse(JSON.stringify(ov.props || {})),
+                    __initialSettings: JSON.parse(JSON.stringify(ov.settings || {}))
+                })
+            }
+
+            newPanes.push(pane)
+        }
+
+        // Ensure main overlay is preserved if not placed
+        if (currentMainOv && !newPanes.some(p => p.overlays.includes(currentMainOv))) {
+            if (newPanes[0]) {
+                newPanes[0].overlays.unshift(currentMainOv)
+            }
+        }
+
+        this.hub.data.panes = newPanes
+        this.hub.detectMain()
+        await this.hub.loadScripts()
+        this.update('full')
+
+        this.events.emit('layout-loaded', layoutData)
+        this.events.emit('chart:layout-changed', layoutData)
+        return true
     }
 
     // Should call this to clean-up memory / events

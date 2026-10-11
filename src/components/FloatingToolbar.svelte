@@ -240,6 +240,7 @@
             visible = false;
             selectedTool = null;
             settingsOpen = false;
+            events.emit("chart:layout-changed");
         }
     }
 
@@ -263,6 +264,7 @@
             p2: [Number(coordP2Bar), Number(coordP2Price)],
             text: toolText,
         });
+        events.emit("chart:layout-changed");
     }
 
     function onAccept() {

@@ -426,6 +426,11 @@ class DataHub {
             this.events.emitSpec('chart', 'update-layout')
             this.events.emit('update-legend')
         }
+        this.notifyLayoutChanged()
+    }
+
+    notifyLayoutChanged() {
+        this.events.emit('chart:layout-changed')
     }
 
     async deleteScriptOrOverlay(paneId, ov) {
@@ -453,6 +458,7 @@ class DataHub {
         }
         this.detectMain()
         this.events.emitSpec('chart', 'full-update')
+        this.notifyLayoutChanged()
     }
 
     async moveScriptOrOverlay(fromPaneId, targetPaneId, ov) {
@@ -505,6 +511,7 @@ class DataHub {
         await this.se.uploadAndExec()
         this.detectMain()
         this.events.emitSpec('chart', 'full-update')
+        this.notifyLayoutChanged()
     }
 
     async addIndicator(type, props = {}, isOverlay = false, targetPane = 'auto') {
@@ -569,6 +576,7 @@ class DataHub {
         this.detectMain()
         this.events.emitSpec('chart', 'full-update')
         await this.se.uploadAndExec()
+        this.notifyLayoutChanged()
     }
 
     onUpdateScriptProps(event) {
@@ -600,6 +608,7 @@ class DataHub {
         this.detectMain()
         this.events.emitSpec('chart', 'full-update')
         await this.se.uploadAndExec()
+        this.notifyLayoutChanged()
     }
 
     async deletePane(paneId) {
@@ -621,6 +630,7 @@ class DataHub {
         this.detectMain()
         this.events.emitSpec('chart', 'full-update')
         await this.se.uploadAndExec()
+        this.notifyLayoutChanged()
     }
 
     maximizePane(paneId) {
@@ -643,6 +653,7 @@ class DataHub {
 
         this.events.emitSpec('chart', 'update-layout')
         this.events.emitSpec('chart', 'full-update')
+        this.notifyLayoutChanged()
     }
 
     collapsePane(paneId) {
@@ -661,6 +672,7 @@ class DataHub {
 
         this.events.emitSpec('chart', 'update-layout')
         this.events.emitSpec('chart', 'full-update')
+        this.notifyLayoutChanged()
     }
 
     onMovePane(event) {

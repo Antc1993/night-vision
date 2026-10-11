@@ -16,6 +16,7 @@
         if (!locked) {
             // When tool placement finishes, return toolbar highlight to crosshair
             activeTool = "crosshair";
+            events.emit("chart:layout-changed");
         }
     });
 
@@ -97,6 +98,7 @@
 
     function clearAllDrawings() {
         events.emit("delete-all-tools");
+        events.emit("chart:layout-changed");
         openFlyout = null;
     }
 
@@ -112,6 +114,7 @@
             events.emit("full-update");
             events.emit("remake-grid");
             events.emit("update-layout");
+            events.emit("chart:layout-changed");
         }
         openFlyout = null;
     }
