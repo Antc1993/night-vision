@@ -185,7 +185,11 @@ function mergeByCtx() {
 // Update all renderers
 function update($layout = layout) {
     layout = $layout
-    if (input) input.layout = layout
+    if (input) {
+        input.layout = layout
+        input.props = props
+        if (props && props.range) input.range = props.range
+    }
     for (var l of layers) {
         // Update environment variables
         l.env.update(l.ovSrc, layout, props)

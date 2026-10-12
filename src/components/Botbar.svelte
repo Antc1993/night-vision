@@ -126,6 +126,11 @@ async function listeners() {
         let newR0 = Math.round(drug.tAnchor - newDt * drug.ratio)
         let newR1 = Math.round(drug.tAnchor + newDt * (1 - drug.ratio))
 
+        if (props.range && props.range.length >= 2) {
+            props.range[0] = newR0
+            props.range[1] = newR1
+        }
+
         events.emit('range-changed', [newR0, newR1])
     })
 

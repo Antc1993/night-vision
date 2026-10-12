@@ -52,8 +52,22 @@ export default class Input {
         this.events.on(`pointer-${this.gridId}:set-cursor`, this.onSetCursor)
         this.events.on('set-cursor', this.onSetCursor)
 
+        this.onRangeChanged = range => {
+            if (Array.isArray(range)) {
+                this.range = range
+                if (this.props) this.props.range = range
+            }
+        }
+        this.events.on('range-changed', this.onRangeChanged)
+
         this.listeners()
         this.mouseEvents('addEventListener')
+    }
+
+    syncRange() {
+        if (this.props && this.props.range && Array.isArray(this.props.range)) {
+            this.range = this.props.range
+        }
     }
 
     mouseEvents(cmd) {
@@ -89,8 +103,10 @@ export default class Input {
             if (this.cursor.mode === 'aim') {
                 return this.emitCursorCoord(event)
             }
+            this.syncRange()
             let scaleId = this.layout.scaleIndex
             let tfrm = this.meta.getYtransform(this.gridId, scaleId)
+            this.dragged = false
             this.drug = {
                 x: event.center.x + this.offsetX,
                 y: event.center.y + this.offsetY,
@@ -121,6 +137,7 @@ export default class Input {
                 this.propagate('mousemove', this.touch2mouse(event))
             }
             if (this.drug) {
+                this.dragged = true
                 this.mousedrag(
                     this.drug.x + event.deltaX,
                     this.drug.y + event.deltaY,
@@ -139,9 +156,13 @@ export default class Input {
             if (Utils.isMobile && this.drug) {
                 this.panFade(event)
             }
+            let wasDragged = this.dragged
             this.drug = null
+            this.dragged = false
             this.events.emit('cursor-locked', false)
-            this.changeRange()
+            if (wasDragged) {
+                this.changeRange()
+            }
         })
 
         mc.on('tap', event => {
@@ -156,6 +177,7 @@ export default class Input {
         })
 
         mc.on('pinchstart', () =>  {
+            this.syncRange()
             this.drug = null
             this.pinch = {
                 t: this.range[1] - this.range[0],
@@ -302,6 +324,7 @@ export default class Input {
    mousezoom(delta, event) {
 
         if (this.meta.scrollLock) return
+        this.syncRange()
 
         // TODO: for mobile
         if (this.wmode !== 'pass') {
@@ -458,6 +481,7 @@ export default class Input {
     trackpadScroll(event) {
 
         if (this.meta.scrollLock) return
+        this.syncRange()
 
         let dt = this.range[1] - this.range[0]
 
@@ -511,6 +535,10 @@ export default class Input {
 
     destroy() {
         this.destroyed = true
+        if (this.onRangeChanged) {
+            this.events.off('range-changed', this.onRangeChanged)
+            this.onRangeChanged = null
+        }
         if (this.onSetCursor) {
             this.events.off('set-cursor', this.onSetCursor)
             this.events.off(`pointer-${this.gridId}:set-cursor`, this.onSetCursor)
