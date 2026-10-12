@@ -26,6 +26,8 @@ export default class FiboCircle {
             { value: 4.236, color: "#f23645", enabled: true }
         ]
 
+        if (!this.data.p2) this.data.p2 = [...this.data.p1]
+
         this.pins = [
             new core.lib.Pin(core, this, 'p1'),
             new core.lib.Pin(core, this, 'p2')
@@ -68,6 +70,44 @@ export default class FiboCircle {
         return res
     }
 
+    applyShiftSnap(cx, cy, anchorX, anchorY) {
+        const angle = Math.atan2(cy - anchorY, cx - anchorX)
+        const step = Math.PI / 4 // 45 degrees
+        const snappedAngle = Math.round(angle / step) * step
+        const dist = Math.hypot(cx - anchorX, cy - anchorY)
+        return {
+            x: anchorX + Math.cos(snappedAngle) * dist,
+            y: anchorY + Math.sin(snappedAngle) * dist
+        }
+    }
+
+    getGeometry() {
+        const layout = this.core.layout
+        const p1 = this.data.p1
+        const p2 = this.data.p2 || p1
+        if (!layout || !p1 || !p2) return null
+
+        const x1 = layout.time2x(p1[0])
+        const y1 = layout.value2y(p1[1])
+        const x2 = layout.time2x(p2[0])
+        const y2 = layout.value2y(p2[1])
+        if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) return null
+
+        const cx = (x1 + x2) / 2
+        const cy = (y1 + y2) / 2
+        const dist = Math.max(Math.hypot(x2 - x1, y2 - y1), 1)
+        const baseRadius = dist / 2
+        const angle = Math.atan2(y1 - cy, x1 - cx)
+
+        return {
+            x1, y1,
+            x2, y2,
+            cx, cy,
+            baseRadius,
+            angle
+        }
+    }
+
     draw(ctx) {
         const layout = this.core.layout
         const p1 = this.data.p1
@@ -81,21 +121,17 @@ export default class FiboCircle {
             }
         }
 
-        const x1 = layout.time2x(p1[0])
-        const y1 = layout.value2y(p1[1])
-        const x2 = layout.time2x(p2[0])
-        const y2 = layout.value2y(p2[1])
+        const geo = this.getGeometry()
+        if (!geo) return
 
-        const dx = x2 - x1
-        const dy = y2 - y1
-        const baseRadius = Math.max(Math.hypot(dx, dy), 1)
-        const angle = Math.atan2(dy, dx)
+        const { x1, y1, x2, y2, cx, cy, baseRadius, angle } = geo
 
         const sett = this.data.settings || {}
         const showBg = sett.showBackground !== false
         const bgOpacity = ((sett.backgroundOpacity != null ? sett.backgroundOpacity : sett.fillOpacity) ?? 15) / 100
         const lineWidth = sett.lineWidth || 1
         const activeLevels = this.getActiveLevels()
+        const maxLevel = activeLevels.length > 0 ? activeLevels[activeLevels.length - 1].value : 1.0
 
         ctx.save()
 
@@ -108,9 +144,9 @@ export default class FiboCircle {
                 const prevR = prevLvl ? baseRadius * prevLvl.value : 0
 
                 ctx.beginPath()
-                ctx.arc(x1, y1, r, 0, Math.PI * 2)
+                ctx.arc(cx, cy, r, 0, Math.PI * 2)
                 if (prevR > 0) {
-                    ctx.arc(x1, y1, prevR, 0, Math.PI * 2, true) // counter-clockwise cutout
+                    ctx.arc(cx, cy, prevR, 0, Math.PI * 2, true) // counter-clockwise cutout
                 }
                 ctx.fillStyle = this.colorWithOpacity(lvl.color, bgOpacity)
                 ctx.fill()
@@ -123,7 +159,7 @@ export default class FiboCircle {
             ctx.beginPath()
             if (trend.style === 'dashed') ctx.setLineDash([5, 5])
             else if (trend.style === 'dotted') ctx.setLineDash([2, 3])
-            else ctx.setLineDash([])
+            else ctx.setLineDash([5, 5])
             ctx.strokeStyle = trend.color || "#787b86"
             ctx.lineWidth = trend.width || 1
             ctx.moveTo(x1, y1)
@@ -146,12 +182,12 @@ export default class FiboCircle {
             const r = baseRadius * lvl.value
             ctx.strokeStyle = lvl.color
             ctx.beginPath()
-            ctx.arc(x1, y1, r, 0, Math.PI * 2)
+            ctx.arc(cx, cy, r, 0, Math.PI * 2)
             ctx.stroke()
         }
         ctx.setLineDash([])
 
-        // 4. Draw labels along the axis
+        // 4. Draw labels from top to bottom (aligned vertically at the bottom of each circle)
         if (sett.showLabels !== false) {
             ctx.font = '10px Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
             ctx.textAlign = 'center'
@@ -159,15 +195,15 @@ export default class FiboCircle {
 
             for (const lvl of activeLevels) {
                 const r = baseRadius * lvl.value
-                const lx = x1 + Math.cos(angle) * r
-                const ly = y1 + Math.sin(angle) * r
+                const lx = cx
+                const ly = cy + r
                 const text = String(lvl.value).replace('.', ',')
 
                 const metrics = ctx.measureText(text)
                 const tw = metrics.width + 6
                 const th = 14
 
-                ctx.fillStyle = 'rgba(18, 22, 34, 0.85)'
+                ctx.fillStyle = 'rgba(18, 22, 34, 0.75)'
                 ctx.fillRect(lx - tw / 2, ly - th / 2, tw, th)
 
                 ctx.fillStyle = lvl.color
@@ -188,18 +224,18 @@ export default class FiboCircle {
     collision(cx, cy) {
         if (this.pins.some(p => p.hover())) return true
 
-        const layout = this.core.layout
-        const p1 = this.data.p1
-        const p2 = this.data.p2 || p1
-        if (!layout || !p1 || !p2) return false
+        const cursor = this.core.cursor || {}
+        const mouse = this.core.mouse || {}
+        const x = cx !== undefined ? cx : (cursor.x !== undefined ? cursor.x : mouse.x)
+        const y = cy !== undefined ? cy : (cursor.y !== undefined ? cursor.y : mouse.y)
+        if (x === undefined || y === undefined) return false
 
-        const x1 = layout.time2x(p1[0])
-        const y1 = layout.value2y(p1[1])
-        const x2 = layout.time2x(p2[0])
-        const y2 = layout.value2y(p2[1])
+        const geo = this.getGeometry()
+        if (!geo) return false
 
-        const distCenter = Math.hypot(cx - x1, cy - y1)
-        const baseRadius = Math.max(Math.hypot(x2 - x1, y2 - y1), 1)
+        const { x1, y1, x2, y2, cx: centerX, cy: centerY, baseRadius } = geo
+
+        const distCenter = Math.hypot(x - centerX, y - centerY)
 
         // Check if cursor is near any concentric circle (within 6px)
         const activeLevels = this.getActiveLevels()
@@ -211,7 +247,7 @@ export default class FiboCircle {
         // Check if near trendline axis
         const sett = this.data.settings || {}
         if (sett.trendLine?.show !== false) {
-            const dLine = this.distToSegment(cx, cy, x1, y1, x2, y2)
+            const dLine = this.distToSegment(x, y, x1, y1, x2, y2)
             if (dLine <= 6) return true
         }
 
@@ -232,12 +268,14 @@ export default class FiboCircle {
             if (trackingPin) {
                 trackingPin.mousedown(event, true)
                 trackingPin.state = 'settled'
+                this.data.p2 = [trackingPin.t, trackingPin.y$]
                 this.isDrawing = false
                 this.data.isDrawing = false
                 this.core.events.emit('scroll-lock', false)
                 this.core.events.emit('hub:set-drawing-in-progress', false)
                 this.core.events.emit('hub:set-drawing-tool', null)
                 this.onSelect(this.data.uuid)
+                this.core.events.emit('chart:layout-changed')
                 if (event) event.__toolCaptured = true
             }
             return
@@ -247,7 +285,7 @@ export default class FiboCircle {
         if (event && (event.__toolCaptured || this.core.lib.Utils.defaultPrevented(event))) return
 
         const pinHovered = this.pins.some(p => p.hover())
-        const coll = this.collision(this.core.cursor.x, this.core.cursor.y)
+        const coll = this.collision(this.core.cursor?.x, this.core.cursor?.y)
 
         if (coll || pinHovered) {
             const isDbl = event && event.detail === 2
@@ -255,10 +293,23 @@ export default class FiboCircle {
             if (event) event.__toolCaptured = true
             if (isDbl) return
 
-            if (!pinHovered && coll) {
+            if (pinHovered) {
+                for (const pin of this.pins) {
+                    if (pin.hover()) {
+                        pin.mousedown(event, true)
+                    }
+                }
+            } else if (coll) {
                 this.isDragging = true
-                const curT = this.core.cursor.time != null ? this.core.cursor.time : this.core.cursor.ti
-                const curY = this.core.layout.y2value(this.core.cursor.y)
+                const layout = this.core.layout
+                const x2tFn = layout ? (layout.x2time || layout.x2t) : null
+                const cx = this.core.cursor?.x !== undefined ? this.core.cursor.x : this.core.mouse?.x
+                const cy = this.core.cursor?.y !== undefined ? this.core.cursor.y : this.core.mouse?.y
+                let curT = (this.core.cursor?.time != null && !isNaN(this.core.cursor.time)) ? this.core.cursor.time : this.core.cursor?.ti
+                if ((curT == null || isNaN(curT)) && x2tFn && cx !== undefined) {
+                    curT = x2tFn.call(layout, cx)
+                }
+                const curY = layout ? layout.y2value(cy) : 0
                 this.dragStart = {
                     t: curT,
                     y$: curY,
@@ -275,7 +326,26 @@ export default class FiboCircle {
         if (this.isDrawing) {
             const trackingPin = this.pins.find(p => p.state === 'tracking')
             if (trackingPin) {
+                if (event && event.shiftKey && this.data.p1) {
+                    const layout = this.core.layout
+                    const x1 = layout.time2x(this.data.p1[0])
+                    const y1 = layout.value2y(this.data.p1[1])
+                    const cx = this.core.cursor?.x !== undefined ? this.core.cursor.x : this.core.mouse?.x
+                    const cy = this.core.cursor?.y !== undefined ? this.core.cursor.y : this.core.mouse?.y
+                    if (cx !== undefined && cy !== undefined && !isNaN(x1) && !isNaN(y1)) {
+                        const snap = this.applyShiftSnap(cx, cy, x1, y1)
+                        const x2tFn = layout.x2time || layout.x2t
+                        trackingPin.t = x2tFn ? x2tFn.call(layout, snap.x) : trackingPin.t
+                        trackingPin.y$ = layout.y2value(snap.y)
+                        trackingPin.x = snap.x
+                        trackingPin.y = snap.y
+                        this.data.p2 = [trackingPin.t, trackingPin.y$]
+                        this.core.events.emit('update-layout')
+                        return
+                    }
+                }
                 trackingPin.mousemove(event)
+                this.data.p2 = [trackingPin.t, trackingPin.y$]
                 this.core.events.emit('update-layout')
             }
             return
@@ -283,14 +353,71 @@ export default class FiboCircle {
 
         if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) return
 
+        // Pin dragging after placed:
+        if (this.pins[0]?.state === 'dragging') {
+            if (event && event.shiftKey && this.data.p2) {
+                const layout = this.core.layout
+                const x2 = layout.time2x(this.data.p2[0])
+                const y2 = layout.value2y(this.data.p2[1])
+                const cx = this.core.cursor?.x !== undefined ? this.core.cursor.x : this.core.mouse?.x
+                const cy = this.core.cursor?.y !== undefined ? this.core.cursor.y : this.core.mouse?.y
+                if (cx !== undefined && cy !== undefined && !isNaN(x2) && !isNaN(y2)) {
+                    const snap = this.applyShiftSnap(cx, cy, x2, y2)
+                    const x2tFn = layout.x2time || layout.x2t
+                    this.pins[0].t = x2tFn ? x2tFn.call(layout, snap.x) : this.pins[0].t
+                    this.pins[0].y$ = layout.y2value(snap.y)
+                    this.pins[0].x = snap.x
+                    this.pins[0].y = snap.y
+                    this.data.p1 = [this.pins[0].t, this.pins[0].y$]
+                    this.core.events.emit('update-layout')
+                    this.core.events.emit('set-cursor', 'pointer')
+                    return
+                }
+            }
+            this.pins[0].mousemove(event)
+            this.data.p1 = [this.pins[0].t, this.pins[0].y$]
+            this.core.events.emit('update-layout')
+            this.core.events.emit('set-cursor', 'pointer')
+            return
+        }
+        if (this.pins[1]?.state === 'dragging') {
+            if (event && event.shiftKey && this.data.p1) {
+                const layout = this.core.layout
+                const x1 = layout.time2x(this.data.p1[0])
+                const y1 = layout.value2y(this.data.p1[1])
+                const cx = this.core.cursor?.x !== undefined ? this.core.cursor.x : this.core.mouse?.x
+                const cy = this.core.cursor?.y !== undefined ? this.core.cursor.y : this.core.mouse?.y
+                if (cx !== undefined && cy !== undefined && !isNaN(x1) && !isNaN(y1)) {
+                    const snap = this.applyShiftSnap(cx, cy, x1, y1)
+                    const x2tFn = layout.x2time || layout.x2t
+                    this.pins[1].t = x2tFn ? x2tFn.call(layout, snap.x) : this.pins[1].t
+                    this.pins[1].y$ = layout.y2value(snap.y)
+                    this.pins[1].x = snap.x
+                    this.pins[1].y = snap.y
+                    this.data.p2 = [this.pins[1].t, this.pins[1].y$]
+                    this.core.events.emit('update-layout')
+                    this.core.events.emit('set-cursor', 'pointer')
+                    return
+                }
+            }
+            this.pins[1].mousemove(event)
+            this.data.p2 = [this.pins[1].t, this.pins[1].y$]
+            this.core.events.emit('update-layout')
+            this.core.events.emit('set-cursor', 'pointer')
+            return
+        }
+
+        // Whole tool dragging:
         if (this.isDragging && this.dragStart) {
             const layout = this.core.layout
             const x2tFn = layout ? (layout.x2time || layout.x2t) : null
-            let curT = (this.core.cursor.time != null && !isNaN(this.core.cursor.time)) ? this.core.cursor.time : this.core.cursor.ti
-            if ((curT == null || isNaN(curT)) && x2tFn) {
-                curT = x2tFn.call(layout, this.core.cursor.x)
+            const cx = this.core.cursor?.x !== undefined ? this.core.cursor.x : this.core.mouse?.x
+            const cy = this.core.cursor?.y !== undefined ? this.core.cursor.y : this.core.mouse?.y
+            let curT = (this.core.cursor?.time != null && !isNaN(this.core.cursor.time)) ? this.core.cursor.time : this.core.cursor?.ti
+            if ((curT == null || isNaN(curT)) && x2tFn && cx !== undefined) {
+                curT = x2tFn.call(layout, cx)
             }
-            const curY = layout.y2value(this.core.cursor.y)
+            const curY = layout ? layout.y2value(cy) : 0
 
             if (curT != null && curY != null && this.dragStart.t != null && this.dragStart.y$ != null) {
                 const dt = curT - this.dragStart.t
@@ -312,8 +439,8 @@ export default class FiboCircle {
             return
         }
 
-        const cx = this.core.cursor.x
-        const cy = this.core.cursor.y
+        const cx = this.core.cursor?.x
+        const cy = this.core.cursor?.y
         const isHover = this.collision(cx, cy)
         if (this.hover !== isHover) {
             this.hover = isHover
@@ -325,7 +452,18 @@ export default class FiboCircle {
     }
 
     mouseup(event) {
-        if (this.isDragging) {
+        const wasPinDragging = this.pins.some(p => p.state === 'dragging')
+        const wasWholeDragging = this.isDragging
+
+        for (const pin of this.pins) {
+            pin.mouseup(event)
+        }
+
+        if (wasPinDragging) {
+            this.core.events.emit('chart:layout-changed')
+        }
+
+        if (wasWholeDragging) {
             this.isDragging = false
             this.dragStart = null
             this.core.events.emit('scroll-lock', false)
@@ -335,7 +473,9 @@ export default class FiboCircle {
 
     dblclick(event) {
         if (this.core.hub?.isDrawingMode && this.core.hub.isDrawingMode()) return
-        if (this.collision(this.core.cursor.x, this.core.cursor.y) || this.pins.some(p => p.hover())) {
+        const cx = this.core.cursor?.x
+        const cy = this.core.cursor?.y
+        if (this.collision(cx, cy) || this.pins.some(p => p.hover())) {
             this.onSelect(this.data.uuid, true)
             if (event) {
                 event.__toolCaptured = true

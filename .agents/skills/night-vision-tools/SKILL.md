@@ -325,9 +325,17 @@ Esta regla previene el error crítico recurrente donde **al hacer zoom o cambiar
                this._dragEndAngle = null
                this.core.events.emit('chart:layout-changed')
            }
-           ...
-       }
-       ```
+            ...
+        }
+        ```
+
+6. **Geometría de Círculos de Fibonacci (Diámetro y Centro en Punto Medio)**:
+   - **No centrar en $P_1$**: A diferencia de figuras radiales simples, en los Círculos de Fibonacci los puntos $P_1$ y $P_2$ representan los extremos del movimiento o tendencia.
+   - **Centro**: Es el punto medio del segmento entre ambos puntos: $\text{center} = \left(\frac{x_1 + x_2}{2}, \frac{y_1 + y_2}{2}\right)$.
+   - **Radio Base (Nivel 1.0)**: Equivale a la mitad de la distancia entre $P_1$ y $P_2$: $R_{\text{base}} = \frac{\|P_2 - P_1\|}{2}$.
+   - De este modo, **el círculo de nivel 1.0 pasa exactamente por $P_1$ y $P_2$**, y el segmento $P_1 P_2$ constituye su diámetro.
+   - **Eje de Tendencia y Etiquetas**: Se dibuja desde $P_2$, cruzando el centro y $P_1$, y extendiéndose en esa dirección hasta el nivel máximo activo ($R_{\text{base}} \times \text{maxLevel}$). Las etiquetas numéricas se colocan a lo largo de este eje.
+   - **Alineación con Tecla Shift**: Al mantener pulsada la tecla Shift mientras se dibuja o arrastra un pin, el ángulo de la línea se bloquea a incrementos exactos de 45° ($\frac{\pi}{4}$ rad).
 
 ---
 
