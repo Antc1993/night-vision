@@ -298,6 +298,37 @@ Esta regla previene el error crítico recurrente donde **al hacer zoom o cambiar
      haciendo que el Pin 3 coincida al 100% con la punta de la figura en todo momento.
    - **Al mover los Pines Base ($P_1$ o $P_2$)**: La dirección del segundo rayo se mantiene fija hacia $P_3$, permitiendo cerrar o abrir la apertura angular de la cuña con precisión. $P_3$ adapta automáticamente su distancia al nuevo radio base $R$ para permanecer perfectamente sobre el arco 1.0.
 
+5. **Prevención de Deriva Acumulativa en `mousemove` y Clics Externos (Commit Atómico en `mouseup`)**:
+   - **NUNCA mutar las coordenadas cartesianas de datos de un pin secundario (`this.data.p3`) durante los eventos continuos de `mousemove` mientras el usuario arrastra un pin base ($P_1$ o $P_2$)**.
+   - **Condicionar siempre `mouseup` al arrastre real**: `mouseup(event)` se dispara en todos los primitivos del gráfico ante cualquier clic (incluso al hacer clic en el lienzo vacío para deseleccionar o mover el chart). **NUNCA ejecutar conversiones ni sobreescribir `this.data` en `mouseup` si ningún pin ni la herramienta estaba en estado `dragging`**.
+   - **Solución Obligatoria**:
+     - Capturar si había arrastre activo **antes** de llamar a `pin.mouseup(event)`:
+       ```javascript
+       mouseup(event) {
+           const wasPin2Dragging = this.pins[2]?.state === 'dragging' || this._dragRadius != null
+           const wasPin1Dragging = this.pins[1]?.state === 'dragging'
+           const wasPin0Dragging = this.pins[0]?.state === 'dragging'
+           const wasWholeDragging = this.isDragging
+
+           for (const pin of this.pins) pin.mouseup(event)
+
+           // Solo mutar datos si el usuario realmente estaba arrastrando este pin
+           if (wasPin2Dragging) {
+               const geo = this.getGeometry()
+               if (geo && this.core.layout) {
+                   const layout = this.core.layout
+                   const x2tFn = layout.x2time || layout.x2t
+                   // Sincronizar P2 y P3 una única vez de forma atómica
+                   ...
+               }
+               this._dragRadius = null
+               this._dragEndAngle = null
+               this.core.events.emit('chart:layout-changed')
+           }
+           ...
+       }
+       ```
+
 ---
 
 ## 4. Plantilla para Crear una Nueva Herramienta

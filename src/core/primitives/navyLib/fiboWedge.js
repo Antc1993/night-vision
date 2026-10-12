@@ -36,12 +36,60 @@ export default class FiboWedge {
             new core.lib.Pin(core, this, 'p3')
         ]
 
+        // Pin 2 acompaña el radio base si Pin 3 lo está arrastrando en tiempo real
+        this.pins[1].draw_circle = (ctx) => {
+            let px, py
+            if (this._dragRadius != null) {
+                const geo = this.getGeometry()
+                px = geo ? geo.x2 : this.pins[1].x
+                py = geo ? geo.y2 : this.pins[1].y
+            } else if (this.pins[1].state === 'tracking' && this.pins[1].x !== undefined) {
+                px = this.pins[1].x
+                py = this.pins[1].y
+            } else {
+                px = this.core.layout.time2x(this.pins[1].t)
+                py = this.core.layout.value2y(this.pins[1].y$)
+                if (isNaN(px)) px = this.pins[1].x || 0
+                if (isNaN(py)) py = this.pins[1].y || 0
+                this.pins[1].x = px
+                this.pins[1].y = py
+            }
+
+            const r = this.selected ? this.pins[1].RADIUS : this.pins[1].RADIUS * 0.95
+            const lw = this.selected ? 1.5 : 1
+
+            ctx.lineWidth = lw
+            ctx.strokeStyle = this.pins[1].COLOR_BR
+            ctx.fillStyle = this.pins[1].COLOR_BACK
+            ctx.beginPath()
+            ctx.arc(px, py, r + 0.5, 0, Math.PI * 2, true)
+            ctx.fill()
+            ctx.stroke()
+        }
+
+        this.pins[1].hover = () => {
+            let px, py
+            if (this._dragRadius != null) {
+                const geo = this.getGeometry()
+                px = geo ? geo.x2 : this.pins[1].x
+                py = geo ? geo.y2 : this.pins[1].y
+            } else {
+                px = this.core.layout.time2x(this.pins[1].t)
+                py = this.core.layout.value2y(this.pins[1].y$)
+            }
+            if (isNaN(px) || isNaN(py)) return false
+            const mouse = this.core.mouse || {}
+            const mx = mouse.x !== undefined ? mouse.x : 0
+            const my = mouse.y !== undefined ? mouse.y : 0
+            return Math.hypot(mx - px, my - py) < (this.pins[1].RADIUS + 3)
+        }
+
         // Pin 3 es un pin dependiente: vive obligatoriamente en el arco de nivel 1.0
         // Sobrescribimos draw_circle y hover para anclarlo a su posición de pantalla calculada (geo.x3, geo.y3)
         this.pins[2].draw_circle = (ctx) => {
             let px = this.pins[2].x
             let py = this.pins[2].y
-            if (px == null || py == null || isNaN(px) || isNaN(py)) {
+            if (px == null || py == null || isNaN(px) || isNaN(py) || this._dragRadius != null) {
                 const geo = this.getGeometry()
                 if (geo) {
                     px = this.pins[2].x = geo.x3
@@ -65,7 +113,7 @@ export default class FiboWedge {
         this.pins[2].hover = () => {
             let px = this.pins[2].x
             let py = this.pins[2].y
-            if (px == null || py == null || isNaN(px) || isNaN(py)) {
+            if (px == null || py == null || isNaN(px) || isNaN(py) || this._dragRadius != null) {
                 const geo = this.getGeometry()
                 if (geo) {
                     px = this.pins[2].x = geo.x3
@@ -138,12 +186,20 @@ export default class FiboWedge {
 
         const x1 = layout.time2x(p1[0])
         const y1 = layout.value2y(p1[1])
-        const x2 = layout.time2x(p2[0])
-        const y2 = layout.value2y(p2[1])
-        if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) return null
+        const origX2 = layout.time2x(p2[0])
+        const origY2 = layout.value2y(p2[1])
+        if (isNaN(x1) || isNaN(y1) || isNaN(origX2) || isNaN(origY2)) return null
 
-        const baseRadius = Math.max(Math.hypot(x2 - x1, y2 - y1), 1)
-        const a1 = Math.atan2(y2 - y1, x2 - x1)
+        const a1 = Math.atan2(origY2 - y1, origX2 - x1)
+        const baseRadius = this._dragRadius != null ? this._dragRadius : Math.max(Math.hypot(origX2 - x1, origY2 - y1), 1)
+
+        const x2 = this._dragRadius != null ? (x1 + Math.cos(a1) * baseRadius) : origX2
+        const y2 = this._dragRadius != null ? (y1 + Math.sin(a1) * baseRadius) : origY2
+
+        if (this.pins[1] && this._dragRadius != null) {
+            this.pins[1].x = x2
+            this.pins[1].y = y2
+        }
 
         let endAngle = a1
         if (this.step === 3 && this.isDrawing) {
@@ -152,6 +208,8 @@ export default class FiboWedge {
             if (cx !== undefined && cy !== undefined) {
                 endAngle = Math.atan2(cy - y1, cx - x1)
             }
+        } else if (this._dragEndAngle != null) {
+            endAngle = this._dragEndAngle
         } else if (this.data.p3) {
             const curX3 = layout.time2x(this.data.p3[0])
             const curY3 = layout.value2y(this.data.p3[1])
@@ -194,26 +252,50 @@ export default class FiboWedge {
 
         const x1 = layout.time2x(p1[0])
         const y1 = layout.value2y(p1[1])
-        const x2 = layout.time2x(p2[0])
-        const y2 = layout.value2y(p2[1])
-        if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) return
+        const origX2 = layout.time2x(p2[0])
+        const origY2 = layout.value2y(p2[1])
+        if (isNaN(x1) || isNaN(y1) || isNaN(origX2) || isNaN(origY2)) return
 
-        const baseRadius = Math.max(Math.hypot(x2 - x1, y2 - y1), 1)
+        let baseRadius
+        if (this.isDrawing && this.step === 3) {
+            // Durante la creación inicial, el Punto 2 fija el radio base
+            baseRadius = Math.max(Math.hypot(origX2 - x1, origY2 - y1), 1)
+        } else {
+            // Al arrastrar el Pin 3 una vez colocado, puede agrandar o achicar toda la cuña
+            baseRadius = Math.max(Math.hypot(cx - x1, cy - y1), 1)
+            this._dragRadius = baseRadius
+        }
+
         const endAngle = Math.atan2(cy - y1, cx - x1)
+        this._dragEndAngle = endAngle
 
         const x3 = x1 + Math.cos(endAngle) * baseRadius
         const y3 = y1 + Math.sin(endAngle) * baseRadius
 
-        const x2tFn = layout.x2time || layout.x2t
-        const t3 = x2tFn ? x2tFn.call(layout, x3) : (layout.ti || 0)
-        const y$3 = layout.y2value(y3)
-
-        this.data.p3 = [t3, y$3]
         if (this.pins[2]) {
-            this.pins[2].t = t3
-            this.pins[2].y$ = y$3
             this.pins[2].x = x3
             this.pins[2].y = y3
+        }
+
+        // Si arrastramos P3, adaptamos en tiempo real la posición en pantalla de P2 al nuevo radio base
+        if (!this.isDrawing) {
+            const a1 = Math.atan2(origY2 - y1, origX2 - x1)
+            const newX2 = x1 + Math.cos(a1) * baseRadius
+            const newY2 = y1 + Math.sin(a1) * baseRadius
+            if (this.pins[1]) {
+                this.pins[1].x = newX2
+                this.pins[1].y = newY2
+            }
+        } else {
+            // Durante la creación inicial (paso 3), guardamos temporalmente en data.p3
+            const x2tFn = layout.x2time || layout.x2t
+            const t3 = x2tFn ? x2tFn.call(layout, x3) : (layout.ti || 0)
+            const y$3 = layout.y2value(y3)
+            this.data.p3 = [t3, y$3]
+            if (this.pins[2]) {
+                this.pins[2].t = t3
+                this.pins[2].y$ = y$3
+            }
         }
     }
 
@@ -554,24 +636,54 @@ export default class FiboWedge {
     }
 
     mouseup(event) {
+        const wasPin2Dragging = this.pins[2]?.state === 'dragging' || this._dragRadius != null
+        const wasPin1Dragging = this.pins[1]?.state === 'dragging'
+        const wasPin0Dragging = this.pins[0]?.state === 'dragging'
+        const wasWholeDragging = this.isDragging
+
         for (const pin of this.pins) {
             pin.mouseup(event)
         }
-        const geo = this.getGeometry()
-        if (geo && this.core.layout) {
-            const layout = this.core.layout
-            const x2tFn = layout.x2time || layout.x2t
-            const t3 = x2tFn ? x2tFn.call(layout, geo.x3) : this.data.p3[0]
-            const y$3 = layout.y2value(geo.y3)
-            this.data.p3 = [t3, y$3]
-            if (this.pins[2]) {
-                this.pins[2].t = t3
-                this.pins[2].y$ = y$3
-                this.pins[2].x = geo.x3
-                this.pins[2].y = geo.y3
+
+        if (wasPin2Dragging) {
+            const geo = this.getGeometry()
+            if (geo && this.core.layout) {
+                const layout = this.core.layout
+                const x2tFn = layout.x2time || layout.x2t
+
+                // Sincronizamos P2 al nuevo radio base en datos
+                const a1 = geo.a1
+                const x2 = geo.x1 + Math.cos(a1) * geo.baseRadius
+                const y2 = geo.y1 + Math.sin(a1) * geo.baseRadius
+                const t2 = x2tFn ? x2tFn.call(layout, x2) : this.data.p2[0]
+                const y$2 = layout.y2value(y2)
+                this.data.p2 = [t2, y$2]
+                if (this.pins[1]) {
+                    this.pins[1].t = t2
+                    this.pins[1].y$ = y$2
+                    this.pins[1].x = x2
+                    this.pins[1].y = y2
+                }
+
+                // Sincronizamos P3 en datos
+                const t3 = x2tFn ? x2tFn.call(layout, geo.x3) : this.data.p3[0]
+                const y$3 = layout.y2value(geo.y3)
+                this.data.p3 = [t3, y$3]
+                if (this.pins[2]) {
+                    this.pins[2].t = t3
+                    this.pins[2].y$ = y$3
+                    this.pins[2].x = geo.x3
+                    this.pins[2].y = geo.y3
+                }
             }
+            this._dragRadius = null
+            this._dragEndAngle = null
+            this.core.events.emit('chart:layout-changed')
+        } else if (wasPin1Dragging || wasPin0Dragging) {
+            this.core.events.emit('chart:layout-changed')
         }
-        if (this.isDragging) {
+
+        if (wasWholeDragging) {
             this.isDragging = false
             this.dragStart = null
             this.core.events.emit('scroll-lock', false)
