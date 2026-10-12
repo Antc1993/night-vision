@@ -15,8 +15,11 @@
             id="nvjs-text-color"
             type="color"
             class="tv-color-swatch"
-            value={settings.color || "#ffffff"}
-            on:input={(e) => update("color", e.target.value)}
+            value={settings.textColor || settings.color || "#ffffff"}
+            on:input={(e) => {
+                update("color", e.target.value);
+                update("textColor", e.target.value);
+            }}
         />
     </div>
 

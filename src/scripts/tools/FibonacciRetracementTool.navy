@@ -11,7 +11,13 @@ let startDrawTool = false
 init() {
     // Restore fibos from dataExt
     for (var fibo of $core.dataExt.fibos || []) {
-        fibos[fibo.uuid] = new $lib.FiboRetracement($core, fibo, fibo.isDrawing || false)
+        if (fibo.type === 'fibo-circle') {
+            fibos[fibo.uuid] = new $lib.FiboCircle($core, fibo, fibo.isDrawing || false)
+        } else if (fibo.type === 'fibo-wedge') {
+            fibos[fibo.uuid] = new $lib.FiboWedge($core, fibo, fibo.isDrawing || false)
+        } else {
+            fibos[fibo.uuid] = new $lib.FiboRetracement($core, fibo, fibo.isDrawing || false)
+        }
         fibos[fibo.uuid].onSelect = fiboSelected
         if (fibo.isDrawing) {
             fibos[fibo.uuid].selected = true
@@ -19,11 +25,21 @@ init() {
     }
 
     const handleToolFibos = event => {
-        startDrawTool = true
+        startDrawTool = 'fibonacci'
+    }
+    const handleToolFiboCircle = event => {
+        startDrawTool = 'fibo-circle'
+    }
+    const handleToolFiboWedge = event => {
+        startDrawTool = 'fibo-wedge'
     }
     $events.on($core.uuid + ':tool-fibos', handleToolFibos)
+    $events.on($core.uuid + ':tool-fibo-circle', handleToolFiboCircle)
+    $events.on($core.uuid + ':tool-fibo-wedge', handleToolFiboWedge)
     if ($core.dataExt && $core.dataExt.uuid) {
         $events.on($core.dataExt.uuid + ':tool-fibos', handleToolFibos)
+        $events.on($core.dataExt.uuid + ':tool-fibo-circle', handleToolFiboCircle)
+        $events.on($core.dataExt.uuid + ':tool-fibo-wedge', handleToolFiboWedge)
     }
 
     $events.on($core.uuid + ':tool-started', activeUuid => {
@@ -59,7 +75,7 @@ init() {
     })
 
     $events.on($core.uuid + ':update-settings', data => {
-        const { uuid, settings, p1, p2, text } = data
+        const { uuid, settings, p1, p2, p3, text } = data
         if (fibos[uuid]) {
             if (settings) {
                 fibos[uuid].data.settings = Object.assign(fibos[uuid].data.settings || {}, settings)
@@ -82,6 +98,13 @@ init() {
                     fibos[uuid].pins[1].y$ = p2[1]
                 }
             }
+            if (p3) {
+                fibos[uuid].data.p3 = p3
+                if (fibos[uuid].pins[2]) {
+                    fibos[uuid].pins[2].t = p3[0]
+                    fibos[uuid].pins[2].y$ = p3[1]
+                }
+            }
             const d = $core.dataExt.fibos.find(x => x.uuid === uuid)
             if (d) {
                 if (settings) d.settings = Object.assign(d.settings || {}, settings)
@@ -91,6 +114,7 @@ init() {
                 }
                 if (p1) d.p1 = p1
                 if (p2) d.p2 = p2
+                if (p3) d.p3 = p3
             }
             $events.emit('update-layout')
         }
@@ -103,7 +127,7 @@ draw(ctx) {
     }
 }
 
-newFibo() {
+newFibo(event, toolType = 'fibonacci') {
 
     if (!$core.dataExt.fibos) {
         $core.dataExt.fibos = []
@@ -128,11 +152,21 @@ newFibo() {
         p1: [t, $],
         p2: [t, $],
         uuid: uuid,
+        type: toolType,
         isDrawing: true
+    }
+    if (toolType === 'fibo-wedge') {
+        fibo.p3 = [t, $]
     }
 
     $core.dataExt.fibos.push(fibo)
-    fibos[uuid] = new $lib.FiboRetracement($core, fibo, true)
+    if (toolType === 'fibo-circle') {
+        fibos[uuid] = new $lib.FiboCircle($core, fibo, true)
+    } else if (toolType === 'fibo-wedge') {
+        fibos[uuid] = new $lib.FiboWedge($core, fibo, true)
+    } else {
+        fibos[uuid] = new $lib.FiboRetracement($core, fibo, true)
+    }
 
     fibos[uuid].onSelect = fiboSelected
     fibos[uuid].selected = true
@@ -157,7 +191,7 @@ fiboSelected($uuid, openSettings = false) {
         $events.emit('selection-event', {
             uuid: $uuid,
             overlayUuid: $core.uuid,
-            type: 'fibonacci',
+            type: selectedFibo.data.type || 'fibonacci',
             settings: selectedFibo.data.settings || {},
             data: selectedFibo.data,
             x: $core.mouse ? $core.mouse.x : 0,
@@ -219,7 +253,8 @@ dblclick(event) {
 
 mousedown(event) {
     if (startDrawTool) {
-        newFibo(event)
+        const typeToDraw = typeof startDrawTool === 'string' ? startDrawTool : 'fibonacci'
+        newFibo(event, typeToDraw)
         if (event) event.__toolCaptured = true
         return
     }

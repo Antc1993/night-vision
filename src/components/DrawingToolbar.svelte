@@ -88,6 +88,10 @@
             events.emit("tool-short", "nada");
         } else if (type === "fibonacci") {
             events.emit("tool-fibos", "horizontal");
+        } else if (type === "fibo-circle") {
+            events.emit("tool-fibo-circle", "nada");
+        } else if (type === "fibo-wedge") {
+            events.emit("tool-fibo-wedge", "nada");
         } else if (type === "measure") {
             events.emit("tool-measure", "nada");
         }
@@ -234,22 +238,101 @@
         {/if}
     </div>
 
-    <!-- 3. Fibonacci Retracement -->
-    <div class="nvjs-tb-item-wrapper">
+    <!-- 3. Fibonacci Tools (Retracement, Circle, Wedge) with Flyout Arrow -->
+    <div class="nvjs-tb-item-wrapper has-arrow">
         <button
             class="nvjs-tb-btn"
-            class:active={activeTool === "fibonacci"}
-            on:click={() => selectTool("fibonacci", "nada")}
-            title="Retroceso de Fibonacci"
+            class:active={["fibonacci", "fibo-circle", "fibo-wedge"].includes(activeTool)}
+            on:click={() => selectTool(["fibo-circle", "fibo-wedge"].includes(activeTool) ? activeTool : "fibonacci", "nada")}
+            title={activeTool === "fibo-circle" ? "Círculo de Fibonacci" : activeTool === "fibo-wedge" ? "Cuña de Fibonacci" : "Retroceso de Fibonacci"}
         >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="3" y1="5" x2="21" y2="5"></line>
-                <line x1="3" y1="10" x2="21" y2="10"></line>
-                <line x1="3" y1="15" x2="21" y2="15"></line>
-                <line x1="3" y1="20" x2="21" y2="20"></line>
-                <line x1="5" y1="20" x2="19" y2="5" stroke-dasharray="2 2"></line>
+            {#if activeTool === "fibo-circle"}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
+                    <line x1="12" y1="12" x2="21" y2="12" stroke-dasharray="2 1.5"></line>
+                </svg>
+            {:else if activeTool === "fibo-wedge"}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M4 20 L20 20"></path>
+                    <path d="M4 20 L16 5"></path>
+                    <path d="M11 20 A 7 7 0 0 0 8.5 14"></path>
+                    <path d="M16 20 A 12 12 0 0 0 11.5 10"></path>
+                    <circle cx="4" cy="20" r="1.5" fill="currentColor"></circle>
+                </svg>
+            {:else}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="5" x2="21" y2="5"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                    <line x1="3" y1="15" x2="21" y2="15"></line>
+                    <line x1="3" y1="20" x2="21" y2="20"></line>
+                    <line x1="5" y1="20" x2="19" y2="5" stroke-dasharray="2 2"></line>
+                </svg>
+            {/if}
+        </button>
+        <button
+            class="nvjs-tb-arrow-btn"
+            class:active={openFlyout === "fibo-group"}
+            on:click={(e) => toggleFlyout("fibo-group", e)}
+            title="Herramientas de Fibonacci"
+        >
+            <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="0,0 24,12 0,24"></polygon>
             </svg>
         </button>
+
+        {#if openFlyout === "fibo-group"}
+            <div class="nvjs-tb-flyout">
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "fibonacci" || !["fibo-circle", "fibo-wedge"].includes(activeTool)}
+                    on:click={() => selectTool("fibonacci", "nada")}
+                >
+                    <span class="nvjs-flyout-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="5" x2="21" y2="5"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                            <line x1="3" y1="15" x2="21" y2="15"></line>
+                            <line x1="3" y1="20" x2="21" y2="20"></line>
+                            <line x1="5" y1="20" x2="19" y2="5" stroke-dasharray="2 2"></line>
+                        </svg>
+                    </span>
+                    <span>Retroceso de Fibonacci</span>
+                </button>
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "fibo-circle"}
+                    on:click={() => selectTool("fibo-circle", "nada")}
+                >
+                    <span class="nvjs-flyout-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
+                            <line x1="12" y1="12" x2="21" y2="12" stroke-dasharray="2 1.5"></line>
+                        </svg>
+                    </span>
+                    <span>Círculo de Fibonacci</span>
+                </button>
+                <button
+                    class="nvjs-tb-flyout-item"
+                    class:selected={activeTool === "fibo-wedge"}
+                    on:click={() => selectTool("fibo-wedge", "nada")}
+                >
+                    <span class="nvjs-flyout-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M4 20 L20 20"></path>
+                            <path d="M4 20 L16 5"></path>
+                            <path d="M11 20 A 7 7 0 0 0 8.5 14"></path>
+                            <path d="M16 20 A 12 12 0 0 0 11.5 10"></path>
+                            <circle cx="4" cy="20" r="1.5" fill="currentColor"></circle>
+                        </svg>
+                    </span>
+                    <span>Cuña de Fibonacci</span>
+                </button>
+            </div>
+        {/if}
     </div>
 
     <!-- 4. Geometric Shapes (Rectangle, Circle, Ellipse, Arc, Triangle) with Flyout Arrow -->

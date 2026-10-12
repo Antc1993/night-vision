@@ -25,6 +25,8 @@ import TrendLine from '../primitives/navyLib/trendLine.js'
 
 import Rectangle from '../primitives/navyLib/rectangle.js'
 import FiboRetracement from '../primitives/navyLib/fiboRetracement.js'
+import FiboCircle from '../primitives/navyLib/fiboCircle.js'
+import FiboWedge from '../primitives/navyLib/fiboWedge.js'
 import Measure from '../primitives/navyLib/measure.js'
 
 import Segment from '../primitives/navyLib/seg.js'
@@ -78,7 +80,7 @@ export default class OverlayEnv {
             candleBody, candleWick, volumeBar,
             fastSma, avgVolume, candleColor,
             roundRect, rescaleFont, drawArrow,
-            TrendLine, Segment, HorizontalLine, HorizontalRay, VerticalLine, TextAnnotation, PriceLabel, PositionTool, Pin, Rectangle, FiboRetracement, Measure, Triangle, PathToolPrimitive, Circle, Ellipse, Arc,
+            TrendLine, Segment, HorizontalLine, HorizontalRay, VerticalLine, TextAnnotation, PriceLabel, PositionTool, Pin, Rectangle, FiboRetracement, FiboCircle, FiboWedge, Measure, Triangle, PathToolPrimitive, Circle, Ellipse, Arc,
             Utils
         }
 

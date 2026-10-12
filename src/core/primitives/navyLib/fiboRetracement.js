@@ -136,7 +136,7 @@ export default class FiboRetracement {
 
         const prec = layout.prec ?? 2
         const showBg = sett.showBackground !== false
-        const bgOp = (sett.backgroundOpacity != null ? sett.backgroundOpacity : 15) / 100
+        const bgOp = ((sett.backgroundOpacity != null ? sett.backgroundOpacity : sett.fillOpacity) ?? 15) / 100
 
         for (let i = 0; i < activeLevels.length; i++) {
             const level = activeLevels[i]
@@ -161,12 +161,14 @@ export default class FiboRetracement {
             ctx.stroke()
 
             // Draw level labels
-            ctx.fillStyle = level.color || '#787b86'
-            ctx.font = '10px Arial'
-            ctx.textAlign = 'right'
-            ctx.fillText(level.value.toFixed(3), minX - 5, y + 3)
-            ctx.textAlign = 'left'
-            ctx.fillText(val.toFixed(prec), maxX + 5, y + 3)
+            if (sett.showLabels !== false) {
+                ctx.fillStyle = level.color || '#787b86'
+                ctx.font = '10px Arial'
+                ctx.textAlign = 'right'
+                ctx.fillText(level.value.toFixed(3), minX - 5, y + 3)
+                ctx.textAlign = 'left'
+                ctx.fillText(val.toFixed(prec), maxX + 5, y + 3)
+            }
         }
 
         ctx.setLineDash([])

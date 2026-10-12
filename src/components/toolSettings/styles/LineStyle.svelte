@@ -36,6 +36,20 @@
             <span class="tv-val-badge">{settings.lineWidth || 1}px</span>
         </div>
     </div>
+    
+    <div class="tv-field-row">
+        <label for="nvjs-line-style">Estilo de línea</label>
+        <select
+            id="nvjs-line-style"
+            class="tv-select"
+            value={settings.lineStyle || "solid"}
+            on:change={(e) => update("lineStyle", e.target.value)}
+        >
+            <option value="solid">Sólida</option>
+            <option value="dashed">Discontinua</option>
+            <option value="dotted">Puntos</option>
+        </select>
+    </div>
 </div>
 
 <style>
@@ -82,5 +96,20 @@
         color: #787b86;
         min-width: 28px;
         text-align: right;
+    }
+
+    .tv-select {
+        background: #1e222d;
+        border: 1px solid #363c4e;
+        color: #d1d4dc;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 12px;
+        outline: none;
+        cursor: pointer;
+    }
+
+    .tv-select:hover {
+        border-color: #4c525e;
     }
 </style>

@@ -63,6 +63,8 @@
         path: LineStyle,
         polyline: LineStyle,
         fibonacci: FibonacciStyle,
+        "fibo-circle": FibonacciStyle,
+        "fibo-wedge": FibonacciStyle,
         measure: MeasureStyle,
         range: MeasureStyle,
         text: TextStyle,
@@ -97,7 +99,7 @@
     }
 
     function hasBorder(type) {
-        return type !== "text";
+        return type !== "text" && !["fibonacci", "fibo-circle", "fibo-wedge"].includes(type);
     }
 
     function hasFill(type) {
@@ -110,6 +112,8 @@
             "path",
             "polyline",
             "fibonacci",
+            "fibo-circle",
+            "fibo-wedge",
             "measure",
             "range",
             "position",
@@ -129,7 +133,7 @@
     }
 
     function hasTextColor(type) {
-        return true;
+        return ["text", "price-label"].includes(type);
     }
 
     function togglePopover(name, e) {
@@ -166,6 +170,10 @@
                 return "Línea de tendencia";
             case "fibonacci":
                 return "Retroceso de Fibonacci";
+            case "fibo-circle":
+                return "Círculo de Fibonacci";
+            case "fibo-wedge":
+                return "Cuña de Fibonacci";
             case "measure":
             case "range":
                 return "Medida (Rango de precio / fecha)";
@@ -368,7 +376,9 @@
     }
 
     function onFillOpacityChange(e) {
-        toolSettings.fillOpacity = parseInt(e.target.value);
+        const val = parseInt(e.target.value);
+        toolSettings.fillOpacity = val;
+        toolSettings.backgroundOpacity = val;
         toolSettings.showBackground = true;
         emitUpdate(false);
     }
@@ -768,6 +778,7 @@
                     <svelte:component
                         this={styleComponents[selectedTool.type] || LineStyle}
                         bind:settings={toolSettings}
+                        toolType={selectedTool.type}
                         onUpdate={() => emitUpdate(false)}
                     />
                 {:else if activeTab === "coordinates"}

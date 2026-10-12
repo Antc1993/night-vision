@@ -233,9 +233,79 @@ Para cualquier primitiva curva donde el tercer punto ($P_3$) defina la curvatura
    - Por defecto, la clase `Pin` dibuja y detecta colisiones proyectando `this.t` y `this.y$`. Para un pin dependiente como $P_3$, se deben sobreescribir `draw_circle(ctx)` y `hover()` en `this.pins[2]` para que utilicen directamente `this.pins[2].x` y `this.pins[2].y` asignados desde $(geo.x_3, geo.y_3)$ (con fallback a `getGeometry()` si aún no están inicializados).
    - Esto asegura que la bolita del Pin 3 se dibuje **exactamente en la mitad física de la curva** ($u = 0.5$) en todo momento y no flote fuera del arco durante el zoom.
 
-5. **Interacciones de Arrastre**:
-   - **Al mover $P_3$ (`updatePin3`)**: proyectar el cursor sobre $\hat{n}$, calcular el nuevo $h = (cursor - M) \cdot \hat{n}$, actualizar `p3.t = layout.x2time(x3)` y `p3.y$ = layout.y2value(y3)`.
-   - **Al mover $P_1$ o $P_2$ (`updatePin3FromCurvature`)**: mantener la distancia fija $h = \text{curvatureDist}$ a lo largo de la nueva normal $\hat{n}_{nuevo}$ en el nuevo punto medio $M_{nuevo}$, actualizando las coordenadas de datos.
+### ⚠️ Regla 12: Geometría Anisótropa de Escalas y Pines Dependientes (Cuñas, Círculos, Canales y Arcos)
+
+Esta regla previene el error crítico recurrente donde **al hacer zoom o cambiar escalas, uno o más pines de una herramienta no coinciden con las líneas, arcos o extremos de la figura**.
+
+1. **La Causa Raíz: Anisotropía de las Escalas Financieras ($S_x \neq S_y$)**:
+   - En un gráfico de velas, el eje X (tiempo en milisegundos o barras) y el eje Y (precio en dólares o unidades) operan en unidades incomparables con escalas independientes ($S_x \neq S_y$).
+   - Cualquier figura que se dibuja con geometría circular o angular euclidiana en el lienzo (como arcos circulares, sectores de cuña, círculos concéntricos o distancias en píxeles) **vive exclusivamente en el espacio de pantalla (píxeles)**.
+   - Las distancias euclidianas en píxeles entre dos puntos $P_1$ y $P_2$:
+     $$R = \text{hypot}(x_2 - x_1, y_2 - y_1)$$
+     **NO se conservan** al mapear puntos de datos cartesianos independientes $[t_3, y_3^\$]$ a través de `layout.time2x` y `layout.value2y` cuando el usuario hace zoom in/out o cambia el rango vertical.
+   - Si un pin secundario almacena coordenadas cartesianas fijas $[t_3, y_3^\$]$ y la clase `Pin` lo proyecta por defecto con `time2x(this.t)` y `value2y(this.y$)`, **su distancia en píxeles a $P_1$ cambiará de forma independiente al radio $R$ de la figura**, haciendo que el pin flote fuera o dentro del arco/rayo.
+
+2. **Pines Libres vs Pines Dependientes**:
+   - **Pin Libre**: Su coordenada de datos $[t, \$]$ es la única fuente de verdad (ej. los extremos de una línea de tendencia $P_1$ y $P_2$, o el vértice de un triángulo). Utiliza la proyección por defecto de `Pin.js`.
+   - **Pin Dependiente**: Su posición espacial está estrictamente restringida por la geometría de la herramienta (ej. el Pin 3 de apertura en la Cuña de Fibonacci, el Pin 3 de curvatura en Arcos, o los pines 3 y 4 de canales paralelos y rectángulos).
+   - **Regla Estricta para Pines Dependientes**:
+     - **SIEMPRE sobreescribir `draw_circle(ctx)` y `hover()`** en el pin dependiente para forzar que el círculo del pin y el hit-testing se ubiquen **exactamente en las coordenadas de pantalla calculadas** $(geo.x_3, geo.y_3)$:
+       ```javascript
+       this.pins[2].draw_circle = (ctx) => {
+           let px = this.pins[2].x, py = this.pins[2].y
+           if (px == null || py == null || isNaN(px) || isNaN(py)) {
+               const geo = this.getGeometry()
+               if (geo) { px = this.pins[2].x = geo.x3; py = this.pins[2].y = geo.y3 }
+               else return
+           }
+           const r = this.selected ? this.pins[2].RADIUS : this.pins[2].RADIUS * 0.95
+           const lw = this.selected ? 1.5 : 1
+           ctx.lineWidth = lw
+           ctx.strokeStyle = this.pins[2].COLOR_BR
+           ctx.fillStyle = this.pins[2].COLOR_BACK
+           ctx.beginPath()
+           ctx.arc(px, py, r + 0.5, 0, Math.PI * 2, true)
+           ctx.fill()
+           ctx.stroke()
+       }
+
+       this.pins[2].hover = () => {
+           let px = this.pins[2].x, py = this.pins[2].y
+           if (px == null || py == null || isNaN(px) || isNaN(py)) {
+               const geo = this.getGeometry()
+               if (geo) { px = this.pins[2].x = geo.x3; py = this.pins[2].y = geo.y3 }
+               else return false
+           }
+           const mouse = this.core.mouse || {}
+           const mx = mouse.x !== undefined ? mouse.x : 0
+           const my = mouse.y !== undefined ? mouse.y : 0
+           return Math.hypot(mx - px, my - py) < (this.pins[2].RADIUS + 3)
+       }
+       ```
+
+3. **Inmutabilidad Absoluta en `draw(ctx)` y `getGeometry()`**:
+   - **NUNCA modificar estructuras de datos (`this.data.p3`, `this.data.deltaAngle`, etc.) dentro de `draw(ctx)` ni de `getGeometry()`**.
+   - `draw()` y `getGeometry()` deben ser funciones puras de solo lectura que calculan posiciones de pantalla instantáneas a 60 fps.
+   - Si se muta `this.data.p3` dentro de `draw()`, la cuantización de barras de `layout.x2time` cambia levemente el ángulo en cada frame, provocando un **feedback loop donde el pin se mueve solo sin parar o tiembla**, degradando severamente el rendimiento.
+
+4. **Fuente de Verdad Paramétrica (`deltaAngle`, `curvatureDist`, etc.)**:
+   - Las herramientas con pines dependientes deben persistir su parámetro geométrico canónico en `this.data` (ej. `this.data.deltaAngle` para la Cuña, `this.data.curvatureDist` para el Arco).
+   - **Al hacer Zoom o Pan**: `getGeometry()` recalcula $x_1, y_1$, $x_2, y_2$, $R$ y $a_1$, y aplica `endAngle = a1 + this.data.deltaAngle`. Así la cuña y su Pin 3 permanecen con apertura exacta sin desfasarse ni un solo píxel.
+   - **Al mover el Pin Dependiente ($P_3$)**: Se actualiza el parámetro geométrico y se proyecta al arco:
+     ```javascript
+     updatePin3(cx, cy) {
+         // Calcular a2 hacia el cursor, dAngle = a2 - a1
+         this.data.deltaAngle = dAngle
+         const x3 = x1 + Math.cos(a1 + dAngle) * baseRadius
+         const y3 = y1 + Math.sin(a1 + dAngle) * baseRadius
+         this.data.p3 = [layout.x2time(x3), layout.y2value(y3)]
+         this.pins[2].t = this.data.p3[0]
+         this.pins[2].y$ = this.data.p3[1]
+         this.pins[2].x = x3
+         this.pins[2].y = y3
+     }
+     ```
+   - **Al mover los Pines Base ($P_1$ o $P_2$)**: Se preserva `deltaAngle` (la apertura angular). El radio y orientación de $P_3$ se recalculan automáticamente sin que la herramienta se abra, cierre o deforme.
 
 ---
 

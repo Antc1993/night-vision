@@ -38,6 +38,20 @@
     </div>
 
     <div class="tv-field-row">
+        <label for="nvjs-rect-line-style">Estilo de línea</label>
+        <select
+            id="nvjs-rect-line-style"
+            class="tv-select"
+            value={settings.lineStyle || "solid"}
+            on:change={(e) => update("lineStyle", e.target.value)}
+        >
+            <option value="solid">Sólida</option>
+            <option value="dashed">Discontinua</option>
+            <option value="dotted">Puntos</option>
+        </select>
+    </div>
+
+    <div class="tv-field-row">
         <label class="tv-checkbox-inline">
             <input
                 type="checkbox"
@@ -69,10 +83,14 @@
                     max="100"
                     step="5"
                     class="tv-range"
-                    value={settings.fillOpacity != null ? settings.fillOpacity : 20}
-                    on:input={(e) => update("fillOpacity", parseInt(e.target.value))}
+                    value={settings.fillOpacity != null ? settings.fillOpacity : (settings.backgroundOpacity != null ? settings.backgroundOpacity : 20)}
+                    on:input={(e) => {
+                        const val = parseInt(e.target.value);
+                        update("fillOpacity", val);
+                        update("backgroundOpacity", val);
+                    }}
                 />
-                <span class="tv-val-badge">{settings.fillOpacity != null ? settings.fillOpacity : 20}%</span>
+                <span class="tv-val-badge">{settings.fillOpacity != null ? settings.fillOpacity : (settings.backgroundOpacity != null ? settings.backgroundOpacity : 20)}%</span>
             </div>
         </div>
     {/if}
@@ -136,5 +154,20 @@
         color: #787b86;
         min-width: 28px;
         text-align: right;
+    }
+
+    .tv-select {
+        background: #1e222d;
+        border: 1px solid #363c4e;
+        color: #d1d4dc;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 12px;
+        outline: none;
+        cursor: pointer;
+    }
+
+    .tv-select:hover {
+        border-color: #4c525e;
     }
 </style>
