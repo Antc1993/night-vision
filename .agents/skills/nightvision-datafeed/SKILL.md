@@ -116,7 +116,7 @@ export class CustomDatafeed extends BaseDatafeed {
 
 ## 3. Canales Avanzados para Order Flow (Footprint y Heatmap)
 
-A diferencia de la API estándar de TradingView que solo maneja velas, `BaseDatafeed` incluye ganchos opcionales para canales de subasta profunda:
+A diferencia de datafeeds tradicionales que solo manejan velas, `BaseDatafeed` incluye ganchos opcionales para canales de subasta profunda:
 
 ### A. Canal de Trades (`subscribeTrades`) — Para Footprint y Delta
 Utilizado para calcular los deltas de volumen por nivel de precio dentro de la vela:

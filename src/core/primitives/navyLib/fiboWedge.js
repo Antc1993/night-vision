@@ -152,17 +152,11 @@ export default class FiboWedge {
             if (cx !== undefined && cy !== undefined) {
                 endAngle = Math.atan2(cy - y1, cx - x1)
             }
-        } else if (this.data.deltaAngle != null) {
-            endAngle = a1 + this.data.deltaAngle
         } else if (this.data.p3) {
             const curX3 = layout.time2x(this.data.p3[0])
             const curY3 = layout.value2y(this.data.p3[1])
             if (!isNaN(curX3) && !isNaN(curY3)) {
-                let da = Math.atan2(curY3 - y1, curX3 - x1) - a1
-                while (da > Math.PI) da -= 2 * Math.PI
-                while (da < -Math.PI) da += 2 * Math.PI
-                this.data.deltaAngle = da
-                endAngle = a1 + da
+                endAngle = Math.atan2(curY3 - y1, curX3 - x1)
             }
         }
 
@@ -205,15 +199,8 @@ export default class FiboWedge {
         if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) return
 
         const baseRadius = Math.max(Math.hypot(x2 - x1, y2 - y1), 1)
-        const a1 = Math.atan2(y2 - y1, x2 - x1)
-        const a2 = Math.atan2(cy - y1, cx - x1)
+        const endAngle = Math.atan2(cy - y1, cx - x1)
 
-        let dAngle = a2 - a1
-        while (dAngle > Math.PI) dAngle -= 2 * Math.PI
-        while (dAngle < -Math.PI) dAngle += 2 * Math.PI
-        this.data.deltaAngle = dAngle
-
-        const endAngle = a1 + dAngle
         const x3 = x1 + Math.cos(endAngle) * baseRadius
         const y3 = y1 + Math.sin(endAngle) * baseRadius
 
@@ -230,39 +217,7 @@ export default class FiboWedge {
         }
     }
 
-    // Sincroniza P3 cuando P1 o P2 cambian, preservando deltaAngle
-    syncP3OnBaseChange() {
-        const layout = this.core.layout
-        const p1 = this.data.p1
-        const p2 = this.data.p2
-        if (!layout || !p1 || !p2) return
 
-        const x1 = layout.time2x(p1[0])
-        const y1 = layout.value2y(p1[1])
-        const x2 = layout.time2x(p2[0])
-        const y2 = layout.value2y(p2[1])
-        if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) return
-
-        const baseRadius = Math.max(Math.hypot(x2 - x1, y2 - y1), 1)
-        const a1 = Math.atan2(y2 - y1, x2 - x1)
-
-        const dAngle = this.data.deltaAngle != null ? this.data.deltaAngle : 0
-        const endAngle = a1 + dAngle
-
-        const x3 = x1 + Math.cos(endAngle) * baseRadius
-        const y3 = y1 + Math.sin(endAngle) * baseRadius
-        const x2tFn = layout.x2time || layout.x2t
-        const t3 = x2tFn ? x2tFn.call(layout, x3) : (layout.ti || 0)
-        const y$3 = layout.y2value(y3)
-
-        this.data.p3 = [t3, y$3]
-        if (this.pins[2]) {
-            this.pins[2].t = t3
-            this.pins[2].y$ = y$3
-            this.pins[2].x = x3
-            this.pins[2].y = y3
-        }
-    }
 
     draw(ctx) {
         const layout = this.core.layout
@@ -542,14 +497,12 @@ export default class FiboWedge {
         if (this.pins[1]?.state === 'dragging') {
             this.pins[1].mousemove(event)
             this.data.p2 = [this.pins[1].t, this.pins[1].y$]
-            this.syncP3OnBaseChange()
             this.core.events.emit('update-layout')
             return
         }
         if (this.pins[0]?.state === 'dragging') {
             this.pins[0].mousemove(event)
             this.data.p1 = [this.pins[0].t, this.pins[0].y$]
-            this.syncP3OnBaseChange()
             this.core.events.emit('update-layout')
             return
         }
@@ -603,6 +556,20 @@ export default class FiboWedge {
     mouseup(event) {
         for (const pin of this.pins) {
             pin.mouseup(event)
+        }
+        const geo = this.getGeometry()
+        if (geo && this.core.layout) {
+            const layout = this.core.layout
+            const x2tFn = layout.x2time || layout.x2t
+            const t3 = x2tFn ? x2tFn.call(layout, geo.x3) : this.data.p3[0]
+            const y$3 = layout.y2value(geo.y3)
+            this.data.p3 = [t3, y$3]
+            if (this.pins[2]) {
+                this.pins[2].t = t3
+                this.pins[2].y$ = y$3
+                this.pins[2].x = geo.x3
+                this.pins[2].y = geo.y3
+            }
         }
         if (this.isDragging) {
             this.isDragging = false

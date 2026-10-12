@@ -172,7 +172,7 @@ legend(x) => [[x[1], $props.lineColor]]
 
 ## 5. Porting Guide: Pine Script to NightVision
 
-To convert any TradingView Pine Script to NightVision:
+To convert any Pine Script indicator to NightVision:
 
 ### Step 1: Map Pine Script Types to Data Structure
 - **Líneas (`plot`)**: Map to `[timestamp, value1, value2, ...]`.

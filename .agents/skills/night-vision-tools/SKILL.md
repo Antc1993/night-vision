@@ -202,7 +202,7 @@ Cada herramienta consta de 3 capas esenciales:
   - Obtener las velas reales a través del hub: `this.core.hub?.mainOv?.data` (o buscando overlays con `ov.main === true` o tipo que contenga `'candle'` en `hub.chart.overlays` y `hub.data.panes`).
   - Utilizar búsqueda binaria (`findNearestIndex`) $O(\log N)$ para ubicar `idx1` y `idx2` correspondientes a `minT` y `maxT`.
   - Conteo inclusivo de barras: `barsCount = (idx2 - idx1) + 1` (más extrapolación si el rango sobrepasa los límites del dataset hacia el pasado o futuro).
-  - Si se arrastra hacia la izquierda (`p2[0] < p1[0]`), mostrar valores negativos (`-15 barras, -1h 15m`) siguiendo el estándar TradingView.
+  - Si se arrastra hacia la izquierda (`p2[0] < p1[0]`), mostrar valores negativos (`-15 barras, -1h 15m`) siguiendo el estándar de la industria.
 
 ### ⚠️ Regla 11: Geometría de Herramientas Curvas y Arcos de 3 Puntos (Fórmula Maestra)
 Para cualquier primitiva curva donde el tercer punto ($P_3$) defina la curvatura en el punto medio respecto a los extremos ($P_1, P_2$):
@@ -288,24 +288,15 @@ Esta regla previene el error crítico recurrente donde **al hacer zoom o cambiar
    - `draw()` y `getGeometry()` deben ser funciones puras de solo lectura que calculan posiciones de pantalla instantáneas a 60 fps.
    - Si se muta `this.data.p3` dentro de `draw()`, la cuantización de barras de `layout.x2time` cambia levemente el ángulo en cada frame, provocando un **feedback loop donde el pin se mueve solo sin parar o tiembla**, degradando severamente el rendimiento.
 
-4. **Fuente de Verdad Paramétrica (`deltaAngle`, `curvatureDist`, etc.)**:
-   - Las herramientas con pines dependientes deben persistir su parámetro geométrico canónico en `this.data` (ej. `this.data.deltaAngle` para la Cuña, `this.data.curvatureDist` para el Arco).
-   - **Al hacer Zoom o Pan**: `getGeometry()` recalcula $x_1, y_1$, $x_2, y_2$, $R$ y $a_1$, y aplica `endAngle = a1 + this.data.deltaAngle`. Así la cuña y su Pin 3 permanecen con apertura exacta sin desfasarse ni un solo píxel.
-   - **Al mover el Pin Dependiente ($P_3$)**: Se actualiza el parámetro geométrico y se proyecta al arco:
-     ```javascript
-     updatePin3(cx, cy) {
-         // Calcular a2 hacia el cursor, dAngle = a2 - a1
-         this.data.deltaAngle = dAngle
-         const x3 = x1 + Math.cos(a1 + dAngle) * baseRadius
-         const y3 = y1 + Math.sin(a1 + dAngle) * baseRadius
-         this.data.p3 = [layout.x2time(x3), layout.y2value(y3)]
-         this.pins[2].t = this.data.p3[0]
-         this.pins[2].y$ = this.data.p3[1]
-         this.pins[2].x = x3
-         this.pins[2].y = y3
-     }
-     ```
-   - **Al mover los Pines Base ($P_1$ o $P_2$)**: Se preserva `deltaAngle` (la apertura angular). El radio y orientación de $P_3$ se recalculan automáticamente sin que la herramienta se abra, cierre o deforme.
+4. **Comportamiento Profesional de Análisis Técnico (Anclaje a Datos vs Ángulo Estático)**:
+   - En herramientas como la Cuña de Fibonacci, los analistas conectan 3 pivotes de mercado reales (velas y precios concretos).
+   - **Al cambiar la escala de precios o hacer zoom**: La dirección del segundo rayo debe derivarse dinámicamente de las coordenadas del gráfico $[t_3, y_3^\$]$:
+     $$\text{endAngle} = \text{atan2}(\text{layout.value2y}(p_3.y\$) - y_1, \text{layout.time2x}(p_3.t) - x_1)$$
+     Esto hace que **al estirar o comprimir el gráfico de precios, la cuña se expanda o contraiga dinámicamente**, manteniendo el rayo apuntando siempre a la vela y precio asignados.
+   - **Coincidencia perfecta del Pin 3**: A pesar de que la apertura es dinámica con los precios, el Pin 3 se renderiza obligatoriamente en la intersección con el arco 1.0:
+     $$x_3 = x_1 + \cos(\text{endAngle}) \cdot R, \quad y_3 = y_1 + \sin(\text{endAngle}) \cdot R$$
+     haciendo que el Pin 3 coincida al 100% con la punta de la figura en todo momento.
+   - **Al mover los Pines Base ($P_1$ o $P_2$)**: La dirección del segundo rayo se mantiene fija hacia $P_3$, permitiendo cerrar o abrir la apertura angular de la cuña con precisión. $P_3$ adapta automáticamente su distancia al nuevo radio base $R$ para permanecer perfectamente sobre el arco 1.0.
 
 ---
 

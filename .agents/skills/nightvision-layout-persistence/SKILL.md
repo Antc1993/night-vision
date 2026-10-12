@@ -5,7 +5,7 @@ description: Guía de arquitectura, especificación de persistencia y adaptadore
 
 # Guía de Persistencia y Storage Adapter en NightVision Charts
 
-Esta skill documenta la arquitectura oficial, los métodos de API y las mejores prácticas para guardar y restaurar el **estado de usuario** (dibujos, indicadores, personalizaciones y estructura de paneles) en **NightVision Charts** de forma desacoplada y eficiente (patrón similar a TradingView Charting Library).
+Esta skill documenta la arquitectura oficial, los métodos de API y las mejores prácticas para guardar y restaurar el **estado de usuario** (dibujos, indicadores, personalizaciones y estructura de paneles) en **NightVision Charts** de forma desacoplada y eficiente (patrón estándar de persistencia de layouts financieros).
 
 ---
 
