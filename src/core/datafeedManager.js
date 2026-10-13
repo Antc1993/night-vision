@@ -163,6 +163,12 @@ export default class DatafeedManager {
 
                 if (this.chart.hub?.mainOv) {
                     this.chart.hub.mainOv.data = normalized;
+                    this.chart.hub.mainOv.settings = this.chart.hub.mainOv.settings || {};
+                    this.chart.hub.mainOv.settings.timeFrame = this.timeframe;
+                }
+
+                if (this.chart.scan) {
+                    this.chart.scan.detectInterval();
                 }
 
                 if (normalized.length > 0) {
@@ -350,6 +356,15 @@ export default class DatafeedManager {
         this.noOlderData = false;
         this.isLoadingHistory = false;
         this.lastCandleTimestamp = null;
+
+        if (this.chart.hub?.mainOv) {
+            this.chart.hub.mainOv.settings = this.chart.hub.mainOv.settings || {};
+            this.chart.hub.mainOv.settings.timeFrame = timeframe;
+        }
+
+        if (this.chart.scan) {
+            this.chart.scan.detectInterval();
+        }
 
         this.loadInitialHistory();
     }

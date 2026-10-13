@@ -11,6 +11,7 @@ import WebWork from './core/se/webWork.js'
 import SeClient from './core/se/seClient.js'
 import DatafeedManager from './core/datafeedManager.js'
 import BaseDatafeed from './adapters/baseDatafeed.js'
+import Utils from './stuff/utils.js'
 
 import resizeTracker from './stuff/resizeTracker.js'
 
@@ -82,7 +83,7 @@ class NightVision {
         return this.comp.id
     }
     set id(val) {
-        this.comp.$set({id: val})
+        this.comp.$set({ id: val })
     }
 
     // Width of the chart
@@ -90,7 +91,7 @@ class NightVision {
         return this.comp.width
     }
     set width(val) {
-        this.comp.$set({width: val})
+        this.comp.$set({ width: val })
         setTimeout(() => this.update())
     }
 
@@ -99,7 +100,7 @@ class NightVision {
         return this.comp.height
     }
     set height(val) {
-        this.comp.$set({height: val})
+        this.comp.$set({ height: val })
         setTimeout(() => this.update())
     }
 
@@ -109,7 +110,7 @@ class NightVision {
         return this.comp.colors
     }
     set colors(val) {
-        this.comp.$set({colors: val})
+        this.comp.$set({ colors: val })
     }
 
     // Show NV logo or not
@@ -117,7 +118,7 @@ class NightVision {
         return this.comp.showLogo
     }
     set showLogo(val) {
-        this.comp.$set({id: val})
+        this.comp.$set({ id: val })
     }
 
 
@@ -146,7 +147,7 @@ class NightVision {
         return this.comp.config
     }
     set config(val) {
-        this.comp.$set({config: val})
+        this.comp.$set({ config: val })
     }
 
     // Index-based mode of rendering
@@ -154,7 +155,7 @@ class NightVision {
         return this.comp.indexBased
     }
     set indexBased(val) {
-        this.comp.$set({indexBased: val})
+        this.comp.$set({ indexBased: val })
     }
 
     // Timezone (Shift from UTC, hours)
@@ -162,7 +163,7 @@ class NightVision {
         return this.comp.timezone
     }
     set timezone(val) {
-        this.comp.$set({timezone: val})
+        this.comp.$set({ timezone: val })
         setTimeout(() => this.update())
     }
 
@@ -219,22 +220,22 @@ class NightVision {
             );
         }
 
-        switch(action) {
+        switch (action) {
             case 'layout':
                 ev.emitSpec('chart', 'update-layout', opt)
-            break
+                break
             case 'data':
                 // TODO: update cursor if it's ahead of the last candle
                 // (needs to track the new last)
                 this.hub.updateRange(this.range)
                 this.meta.calcOhlcMap()
                 ev.emitSpec('chart', 'update-layout', opt)
-            break
+                break
             case 'full':
                 this.hub.init(this.hub.data || this._data)
                 this._data = this.hub.data
                 ev.emitSpec('chart', 'full-update', opt)
-            break
+                break
             case 'grid':
                 if (id === undefined) {
                     ev.emit('remake-grid')
@@ -242,7 +243,7 @@ class NightVision {
                     let gridId = `grid-${id}`
                     ev.emitSpec(gridId, 'remake-grid', opt)
                 }
-            break
+                break
             case 'legend':
                 if (id === undefined) {
                     ev.emit('update-legend')
@@ -250,13 +251,13 @@ class NightVision {
                     let gridId = `legend-${id}`
                     ev.emitSpec(gridId, 'update-legend', opt)
                 }
-            break
+                break
         }
     }
 
     // Reset everything
     fullReset() {
-        this.update('full', {resetRange: true})
+        this.update('full', { resetRange: true })
     }
 
     // Go to time/index
@@ -346,6 +347,7 @@ class NightVision {
             version: 1,
             timestamp: Date.now(),
             chart: {
+                timeframe: this.timeframe || (mainOv?.settings?.timeFrame),
                 timezone: this.timezone,
                 range: options.includeRange ? this.range : undefined,
                 colors: this.colors ? JSON.parse(JSON.stringify(this.colors)) : {},
@@ -419,6 +421,12 @@ class NightVision {
 
         // 1. Restore chart settings
         if (layoutData.chart) {
+            if (layoutData.chart.timeframe) {
+                this.timeframe = layoutData.chart.timeframe
+                if (this.hub.mainOv?.settings) {
+                    this.hub.mainOv.settings.timeFrame = layoutData.chart.timeframe
+                }
+            }
             if (layoutData.chart.timezone !== undefined) {
                 this.timezone = layoutData.chart.timezone
             }
@@ -439,7 +447,7 @@ class NightVision {
         }
 
         // 2. Locate current main candlestick overlay
-        const currentMainOv = this.hub.mainOv
+        const currentMainOv = this.hub.mainOv || this.hub.panes()?.[0]?.overlays?.find(o => o.main || o.type === 'Candles')
         let newPanes = []
 
         for (let pData of layoutData.panes) {
@@ -459,8 +467,18 @@ class NightVision {
             }
 
             // Restore main candlestick chart if this was the main pane
-            if (pData.isMain && currentMainOv) {
-                pane.overlays.push(currentMainOv)
+            if (pData.isMain) {
+                if (currentMainOv) {
+                    pane.overlays.push(currentMainOv)
+                } else {
+                    pane.overlays.push({
+                        name: this.symbol || 'Candles',
+                        type: 'Candles',
+                        main: true,
+                        data: [],
+                        settings: { scale: 'A', precision: 2 }
+                    })
+                }
             }
 
             // Restore drawing tools
@@ -504,6 +522,9 @@ class NightVision {
 
         this.hub.data.panes = newPanes
         this.hub.detectMain()
+        if (this.hub.mainPaneId == null || this.hub.mainPaneId === -1) {
+            this.hub.mainPaneId = 0
+        }
         await this.hub.loadScripts()
         this.update('full')
 
@@ -520,7 +541,7 @@ class NightVision {
         }
         this.comp.$destroy()
         this.ww.stop()
-    } 
+    }
 }
 
 export {

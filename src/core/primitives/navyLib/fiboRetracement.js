@@ -47,7 +47,7 @@ export default class FiboRetracement {
             new core.lib.Pin(core, this, 'p2')
         ]
 
-        const isNew = nw || fibo.isDrawing || false
+        const isNew = nw || data?.isDrawing || false
         if (isNew) {
             this.pins[1].state = 'tracking'
             this.isDrawing = true
