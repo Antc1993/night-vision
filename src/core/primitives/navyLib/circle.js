@@ -54,18 +54,19 @@ export default class Circle {
 
         const cx = layout.time2x(p1.t)
         const cy = layout.value2y(p1.y$)
-        const rxEdge = layout.time2x(p2.t)
+        const x2 = layout.time2x(p2.t)
+        const y2 = layout.value2y(p2.y$)
 
-        if (isNaN(cx) || isNaN(cy) || isNaN(rxEdge)) return null
+        if (isNaN(cx) || isNaN(cy) || isNaN(x2) || isNaN(y2)) return null
 
-        let radius = Math.abs(rxEdge - cx)
+        let radius = Math.hypot(x2 - cx, y2 - cy)
         if (radius < 2) radius = 2
 
         // Clamp radius to prevent browser canvas freeze on extreme offscreen zoom
         const maxR = Math.max(layout.width || 1200, layout.height || 800) * 3
         if (radius > maxR) radius = maxR
 
-        return { cx, cy, rxEdge, radius }
+        return { cx, cy, x2, y2, radius }
     }
 
     draw(ctx) {
@@ -79,24 +80,23 @@ export default class Circle {
                 const mouse = this.core.mouse || {}
                 const mx = cursor.x !== undefined ? cursor.x : (mouse.x !== undefined ? mouse.x : 0)
                 const my = cursor.y !== undefined ? cursor.y : (mouse.y !== undefined ? mouse.y : 0)
-                const cx = layout.time2x(this.pins[0].t)
-                const cy = layout.value2y(this.pins[0].y$)
-                const R = Math.max(5, Math.hypot(mx - cx, my - cy))
                 const x2tFn = layout.x2time || layout.x2t
-                if (x2tFn) {
-                    const tEdge = x2tFn.call(layout, cx + R)
-                    trackingPin.t = tEdge
-                    trackingPin.y$ = this.pins[0].y$
-                    if (this.data.p2) {
-                        this.data.p2 = [tEdge, this.pins[0].y$]
-                    }
+                let t = (cursor.time != null && !isNaN(cursor.time)) ? cursor.time : cursor.ti
+                if ((t == null || isNaN(t)) && x2tFn) t = x2tFn.call(layout, mx)
+                let y$ = layout.y2value(my)
+                trackingPin.t = t
+                trackingPin.y$ = y$
+                trackingPin.x = mx
+                trackingPin.y = my
+                if (this.data.p2) {
+                    this.data.p2 = [t, y$]
                 }
             }
         }
 
         const geo = this.getGeometry()
         if (!geo) return
-        const { cx, cy, radius } = geo
+        const { cx, cy, x2, y2, radius } = geo
 
         const sett = this.data.settings || {}
         const color = sett.color || '#26a69a'
@@ -139,7 +139,7 @@ export default class Circle {
             ctx.lineWidth = 1
             ctx.beginPath()
             ctx.moveTo(cx, cy)
-            ctx.lineTo(cx + radius, cy)
+            ctx.lineTo(x2, y2)
             ctx.stroke()
             ctx.setLineDash([])
         }
@@ -159,8 +159,6 @@ export default class Circle {
         // 5. Draw Pins
         if (this.hover || this.selected || this.isDrawing) {
             this.pins[0].draw(ctx)
-            this.pins[1].x = cx + radius
-            this.pins[1].y = cy
             this.pins[1].draw(ctx)
         }
     }
@@ -201,6 +199,7 @@ export default class Circle {
             const trackingPin = this.pins.find(p => p.state === 'tracking')
             if (trackingPin) {
                 trackingPin.state = 'settled'
+                this.data.p2 = [trackingPin.t, trackingPin.y$]
                 this.isDrawing = false
                 this.data.isDrawing = false
                 this.selected = false
