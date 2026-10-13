@@ -329,13 +329,15 @@ Esta regla previene el error crítico recurrente donde **al hacer zoom o cambiar
         }
         ```
 
-6. **Geometría de Círculos de Fibonacci (Diámetro y Centro en Punto Medio)**:
+6. **Geometría de Círculos de Fibonacci (Diámetro, Centro y Proyección Elíptica en TV)**:
    - **No centrar en $P_1$**: A diferencia de figuras radiales simples, en los Círculos de Fibonacci los puntos $P_1$ y $P_2$ representan los extremos del movimiento o tendencia.
    - **Centro**: Es el punto medio del segmento entre ambos puntos: $\text{center} = \left(\frac{x_1 + x_2}{2}, \frac{y_1 + y_2}{2}\right)$.
-   - **Radio Base (Nivel 1.0)**: Equivale a la mitad de la distancia entre $P_1$ y $P_2$: $R_{\text{base}} = \frac{\|P_2 - P_1\|}{2}$.
-   - De este modo, **el círculo de nivel 1.0 pasa exactamente por $P_1$ y $P_2$**, y el segmento $P_1 P_2$ constituye su diámetro.
-   - **Eje de Tendencia y Etiquetas**: Se dibuja desde $P_2$, cruzando el centro y $P_1$, y extendiéndose en esa dirección hasta el nivel máximo activo ($R_{\text{base}} \times \text{maxLevel}$). Las etiquetas numéricas se colocan a lo largo de este eje.
-   - **Alineación con Tecla Shift**: Al mantener pulsada la tecla Shift mientras se dibuja o arrastra un pin, el ángulo de la línea se bloquea a incrementos exactos de 45° ($\frac{\pi}{4}$ rad).
+   - **Proyección Elíptica Reactiva a las Escalas**: Dado que los ejes de tiempo y precio no comparten la misma escala métrica, la figura en TradingView se proyecta como una elipse:
+     $$rxBase = \frac{|x_2 - x_1|}{\sqrt{2}}, \quad ryBase = \frac{|y_2 - y_1|}{\sqrt{2}}$$
+   - **Garantía Geométrica**: Con esta fórmula, el nivel 1.0 pasa exactamente por $P_1$ y $P_2$ en cualquier nivel de zoom o escala ($\frac{(x_1-cx)^2}{rxBase^2} + \frac{(y_1-cy)^2}{ryBase^2} = 1$).
+   - **Alineación con Tecla Shift (45°)**: Al mantener pulsada la tecla Shift mientras se dibuja, el ángulo se bloquea a 45°, haciendo que $|x_2 - x_1| = |y_2 - y_1|$ y $rxBase = ryBase$, formándose un círculo perfectamente redondo.
+   - **Comportamiento ante Zoom/Escalado**: Al comprimir o estirar la escala de precios verticalmente (sidebar), $ryBase$ cambia reactivamente, aplanando la elipse tal como en TradingView. Se dibuja con `ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)`.
+   - **Etiquetas Numéricas**: Se colocan en la parte inferior vertical de cada elipse en $(cx, cy + ry)$.
 
 ---
 

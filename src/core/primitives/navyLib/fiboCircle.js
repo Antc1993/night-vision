@@ -95,15 +95,16 @@ export default class FiboCircle {
 
         const cx = (x1 + x2) / 2
         const cy = (y1 + y2) / 2
-        const dist = Math.max(Math.hypot(x2 - x1, y2 - y1), 1)
-        const baseRadius = dist / 2
+        const rxBase = Math.max(Math.abs(x2 - x1) / Math.SQRT2, 1)
+        const ryBase = Math.max(Math.abs(y2 - y1) / Math.SQRT2, 1)
         const angle = Math.atan2(y1 - cy, x1 - cx)
 
         return {
             x1, y1,
             x2, y2,
             cx, cy,
-            baseRadius,
+            rxBase,
+            ryBase,
             angle
         }
     }
@@ -124,14 +125,13 @@ export default class FiboCircle {
         const geo = this.getGeometry()
         if (!geo) return
 
-        const { x1, y1, x2, y2, cx, cy, baseRadius, angle } = geo
+        const { x1, y1, x2, y2, cx, cy, rxBase, ryBase, angle } = geo
 
         const sett = this.data.settings || {}
         const showBg = sett.showBackground !== false
         const bgOpacity = ((sett.backgroundOpacity != null ? sett.backgroundOpacity : sett.fillOpacity) ?? 15) / 100
         const lineWidth = sett.lineWidth || 1
         const activeLevels = this.getActiveLevels()
-        const maxLevel = activeLevels.length > 0 ? activeLevels[activeLevels.length - 1].value : 1.0
 
         ctx.save()
 
@@ -139,14 +139,16 @@ export default class FiboCircle {
         if (showBg && activeLevels.length > 0) {
             for (let i = activeLevels.length - 1; i >= 0; i--) {
                 const lvl = activeLevels[i]
-                const r = baseRadius * lvl.value
+                const rx = rxBase * lvl.value
+                const ry = ryBase * lvl.value
                 const prevLvl = i > 0 ? activeLevels[i - 1] : null
-                const prevR = prevLvl ? baseRadius * prevLvl.value : 0
+                const prevRx = prevLvl ? rxBase * prevLvl.value : 0
+                const prevRy = prevLvl ? ryBase * prevLvl.value : 0
 
                 ctx.beginPath()
-                ctx.arc(cx, cy, r, 0, Math.PI * 2)
-                if (prevR > 0) {
-                    ctx.arc(cx, cy, prevR, 0, Math.PI * 2, true) // counter-clockwise cutout
+                ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
+                if (prevRx > 0 && prevRy > 0) {
+                    ctx.ellipse(cx, cy, prevRx, prevRy, 0, 0, Math.PI * 2, true) // counter-clockwise cutout
                 }
                 ctx.fillStyle = this.colorWithOpacity(lvl.color, bgOpacity)
                 ctx.fill()
@@ -168,7 +170,7 @@ export default class FiboCircle {
             ctx.setLineDash([])
         }
 
-        // 3. Draw concentric circular rings
+        // 3. Draw concentric circular/elliptical rings
         ctx.lineWidth = lineWidth
         if (sett.lineStyle === 'dashed') {
             ctx.setLineDash([5, 5])
@@ -179,24 +181,25 @@ export default class FiboCircle {
         }
 
         for (const lvl of activeLevels) {
-            const r = baseRadius * lvl.value
+            const rx = rxBase * lvl.value
+            const ry = ryBase * lvl.value
             ctx.strokeStyle = lvl.color
             ctx.beginPath()
-            ctx.arc(cx, cy, r, 0, Math.PI * 2)
+            ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
             ctx.stroke()
         }
         ctx.setLineDash([])
 
-        // 4. Draw labels from top to bottom (aligned vertically at the bottom of each circle)
+        // 4. Draw labels from top to bottom (aligned vertically at the bottom of each circle/ellipse)
         if (sett.showLabels !== false) {
             ctx.font = '10px Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
             ctx.textAlign = 'center'
             ctx.textBaseline = 'middle'
 
             for (const lvl of activeLevels) {
-                const r = baseRadius * lvl.value
+                const ry = ryBase * lvl.value
                 const lx = cx
-                const ly = cy + r
+                const ly = cy + ry
                 const text = String(lvl.value).replace('.', ',')
 
                 const metrics = ctx.measureText(text)
@@ -233,15 +236,18 @@ export default class FiboCircle {
         const geo = this.getGeometry()
         if (!geo) return false
 
-        const { x1, y1, x2, y2, cx: centerX, cy: centerY, baseRadius } = geo
+        const { x1, y1, x2, y2, cx: centerX, cy: centerY, rxBase, ryBase } = geo
 
-        const distCenter = Math.hypot(x - centerX, y - centerY)
+        const angle = Math.atan2(y - centerY, x - centerX)
+        const cosA = Math.cos(angle)
+        const sinA = Math.sin(angle)
 
-        // Check if cursor is near any concentric circle (within 6px)
+        // Check if cursor is near any concentric ellipse (within 6px)
         const activeLevels = this.getActiveLevels()
         for (const lvl of activeLevels) {
-            const r = baseRadius * lvl.value
-            if (Math.abs(distCenter - r) <= 6) return true
+            const ex = centerX + (rxBase * lvl.value) * cosA
+            const ey = centerY + (ryBase * lvl.value) * sinA
+            if (Math.hypot(x - ex, y - ey) <= 6) return true
         }
 
         // Check if near trendline axis
