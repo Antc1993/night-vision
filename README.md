@@ -13,6 +13,14 @@
 
 <img src="./docs/docs/public/chart2.jpg" alt="NightVision Charts Preview" width="100%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);" />
 
+<br/><br/>
+
+### **The ultra-fast, highly customizable charting library for financial markets, crypto, and professional trading.**
+
+**NightVision Charts** is a modern, lightweight, and high-performance financial charting library designed for web applications, crypto exchanges, fintech platforms, and algorithmic trading dashboards. Built on a hardware-accelerated 2D HTML5 Canvas engine with Svelte, it delivers smooth 60 FPS rendering even under high-frequency WebSocket data streams and complex multi-pane indicator setups.
+
+Whether you are building a full-featured TradingView alternative, creating custom algorithmic overlays using the reactive **NavyJS** script engine, or integrating interactive drawing tools, NightVision gives you complete architectural freedom with zero bloated dependencies.
+
 </div>
 
 > **Notice & Attribution:**  
@@ -54,6 +62,13 @@
 
 ### 💾 Layout & Workspace Persistence
 - Export and restore the entire chart state (`saveLayout()` and `loadLayout()`) including drawings, indicators, scales, colors, and pane splits to `localStorage` or remote databases.
+
+### 🤖 AI-Assisted Development Skills Included (`.agents/skills/`)
+This repository is AI-native and comes pre-packaged with curated architectural skills in `.agents/skills/` designed to supercharge development with AI coding agents (Cursor, Claude Code, Copilot, Antigravity, etc.):
+- **`night-vision-tools`**: Architectural rules, coordinate-projection patterns, and templates for building interactive canvas tools.
+- **`nightvision-datafeed`**: Complete guide and contract for implementing streaming WebSockets, order flow, and historical pagination adapters.
+- **`nightvision-indicator-builder`**: Reference manual for creating and porting custom NavyJS indicators and overlays.
+- **`nightvision-layout-persistence`**: Layout serialization, reactive auto-save, and storage adapter integration patterns.
 
 ---
 

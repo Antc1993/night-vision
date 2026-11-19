@@ -13,6 +13,14 @@
 
 <img src="./docs/docs/public/chart2.jpg" alt="Vista previa de NightVision Charts" width="100%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);" />
 
+<br/><br/>
+
+### **Librería de gráficos financieros ultrarrápida y altamente personalizable para cripto, acciones y trading profesional.**
+
+**NightVision Charts** es una librería moderna, ligera y de alto rendimiento diseñada para aplicaciones web, exchanges de criptomonedas, plataformas fintech y paneles de trading algorítmico. Construida sobre un motor Canvas 2D acelerado con Svelte, ofrece un renderizado fluido a 60 FPS incluso bajo streaming continuo de datos por WebSocket y configuraciones complejas de múltiples paneles e indicadores.
+
+Ya sea que busques una alternativa abierta y flexible a TradingView, diseñar indicadores propios mediante el motor reactivo **NavyJS** o integrar herramientas interactivas de análisis técnico, NightVision te brinda libertad arquitectónica total sin dependencias pesadas ni ataduras.
+
 </div>
 
 > **Aviso y Atribución:**  
@@ -54,6 +62,13 @@
 
 ### 💾 Persistencia de Dibujos y Plantillas (Layout Persistence)
 - Exporta y restaura el estado completo del gráfico (`saveLayout()` y `loadLayout()`), incluyendo dibujos, indicadores activos, escalas, colores y distribución de paneles en `localStorage` o bases de datos remotas.
+
+### 🤖 Skills de Desarrollo Asistido por IA Incluidas (`.agents/skills/`)
+Este repositorio está preparado para desarrollo con IA e incluye guías y reglas arquitectónicas en `.agents/skills/` diseñadas para asistir a agentes de codificación (Cursor, Claude Code, Copilot, Antigravity, etc.):
+- **`night-vision-tools`**: Reglas matemáticas, proyección de coordenadas y plantillas para crear y mantener herramientas de dibujo interactivas.
+- **`nightvision-datafeed`**: Guía y especificación para implementar adaptadores de datos en tiempo real (WebSockets, paginación histórica y canales avanzados).
+- **`nightvision-indicator-builder`**: Manual de referencia para crear y portar indicadores técnicos y overlays mediante NavyJS.
+- **`nightvision-layout-persistence`**: Serialización de espacios de trabajo, auto-guardado reactivo y adaptadores de almacenamiento (*StorageAdapter*).
 
 ---
 
